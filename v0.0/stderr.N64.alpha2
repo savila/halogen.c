@@ -1,0 +1,97 @@
+Reading Gadget files...
+=====================================================
+ read_gadget:
+
+    infile = ../../Simulations/2LPT/j_L1000_N512/z0.00
+    lunit  = 1
+    munit  = 1e+10
+    format = 1
+    swap   = 0
+=====================================================
+expansion factor: 1.000000
+redshift:         0.000000
+boxsize:          1000.000000 (1000.000000 Mpc/h)
+omega0:           0.270000
+lambda0:          0.730000
+HubbleParam:      0.700000
+
+gas:    np[0]=        0	 nall[0]=        0	 massarr[0]=0
+halo:   np[1]=134217728	 nall[1]=134217728	 massarr[1]=55.8335
+disk:   np[2]=        0	 nall[2]=        0	 massarr[2]=0
+bulge:  np[3]=        0	 nall[3]=        0	 massarr[3]=0
+stars:  np[4]=        0	 nall[4]=        0	 massarr[4]=0
+bndry:  np[5]=        0	 nall[5]=        0	 massarr[5]=0
+
+-> reading 134217728 particles from  GADGET file #1/1...
+
+-> allocating 9.000000 GB of RAM for particles
+
+reading ( 1.5e+03 MB) ... Pos[X]=     994.491 Pos[Y]=     993.039 Pos[Z]=     991.492 ... ( 1.5e+03 MB) done.
+reading ( 1.5e+03 MB) ... Vel[X]=    -229.013 Vel[Y]=    -183.965 Vel[Z]=    -318.623 ... ( 1.5e+03 MB) done.
+reading ( 5.1e+02 MB) ... ID=   134217728 ...  ( 5.1e+02 MB) done.
+
+    halo:   tot_mass[1]=   7.4938493e+19 Msun/h (   5.5833528e+11 Msun/h per particle)
+===================================================================
+
+quick ID check:
+   IDmin = 1
+   IDmax = 134217728
+   IDmax-IDmin = 134217727  vs.  nall[1] = 134217728
+
+Gadget file(s) correctly read!
+Check: Npart=134217728, mpart=5.583353e+11, Lbox=1000.000000
+x[0]= 1.937629, y[0]= 993.977295, z[0]= 997.100342
+      ...
+x[134217727]= 994.491028, y[134217727]= 993.038879, z[134217727]= 991.491516
+populate_mass_function.c V4.0
+Reading Mass Function... 
+... read
+seed: 1396515975
+Number of halos: 333376
+Inverting Mass Function... 
+...done!
+Generating halo masses...
+...sorting them...
+...done
+Hi! This is place_halos.c v9.0.0
+Using OMP with 8 threads
+#def _CRIT
+#def _VERB
+#def _PERIODIC
+#def _ONLYBIG
+
+MassFunction computed globally with hmf. Particles and Halos placed in 64^3 cells
+Exclusion done only with haloes.
+BOX = 1000.000000  lcell =15.625000   rho_ref = 2.775500e+11  invL 0.001000
+Nhalos = 333376 NPart = 134217728
+
+RAND_MAX=2147483647
+X[0] = 1.937629 Y[0] = 993.977295 Z[0] = 997.100342
+X[1] = 2.599700 Y[1] = 993.294312 Z[1] = 998.385498
+M[0] = 3.217836e+15 
+M[1] = 2.426693e+15 
+
+Exclusion done only with haloes. Minimmum mass= 1.116666e+13. Minimum part per halo = 20. Effective mp (not the real one) 5.583353e+11
+time of initialisation 0.000000
+Assigning particles to grid ...
+WARNING: Particle 243666 at [1000.000000,926.517517,906.086670] seems to be out of the right box interval [0.,1000.000000), placed at cell [0,59,57]
+WARNING: Particle 452360 at [1000.000000,733.858765,524.972351] seems to be out of the right box interval [0.,1000.000000), placed at cell [0,46,33]
+WARNING: Particle 1297166 at [1000.000000,944.731384,525.775452] seems to be out of the right box interval [0.,1000.000000), placed at cell [0,60,33]
+WARNING: Particle 33554978 at [260.573944,1000.000000,69.359383] seems to be out of the right box interval [0.,1000.000000), placed at cell [16,0,4]
+WARNING: Particle 85780484 at [644.161194,219.950668,1000.000000] seems to be out of the right box interval [0.,1000.000000), placed at cell [41,14,0]
+WARNING: Particle 91042305 at [683.732544,293.866791,1000.000000] seems to be out of the right box interval [0.,1000.000000), placed at cell [43,18,0]
+Mass_cell[0]=8.821697e+13  TotProb=0.000000e+00
+ ...done
+
+time of the actual assignment 1396515981.000000
+
+Placing Halos...
+
+time placing 81.000000
+total time in .c 87.000000
+
+Everything done!!!
+Halos placed!
+Hi! This is place_halos.c v9.0.0
+283.84user 70.05system 2:14.07elapsed 263%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+29768outputs (0major+3224271minor)pagefaults 0swaps
