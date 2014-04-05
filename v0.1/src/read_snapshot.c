@@ -7,6 +7,9 @@
  *
  *=========================================================================*/
 
+#define _DEBUG
+#define _VERB
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -259,7 +262,7 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
   char           DATA[MAXSTRING];
   float          fdummy[3];
   double         ddummy[3];
-  double         x_fac, v_fac, m_fac;
+  double         x_fac;
   long           pid;
 
   
@@ -320,8 +323,7 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
   
   /* conversion factors to Mpc/h, km/sec, Msun/h */
   x_fac  = GADGET_LUNIT;
-  v_fac  = sqrt(gadget.header.expansion);
-  m_fac  = GADGET_MUNIT;
+  //m_fac  = GADGET_MUNIT;
   
   /* count total no. of particles in current file (and set massflag) */
   massflag    = 0;
@@ -407,20 +409,17 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
        ReadFloat(icfile,&(fdummy[0]),SWAPBYTES);
        ReadFloat(icfile,&(fdummy[1]),SWAPBYTES);
        ReadFloat(icfile,&(fdummy[2]),SWAPBYTES);
-       ddummy[0] = fdummy[0];
-       ddummy[1] = fdummy[1];
-       ddummy[2] = fdummy[2];
       }
      
     /* get proper position in  array */
     pid = get_pid(i);
     
     /* storage and conversion to comoving physical units */
-    (*out_x)[pid] = ddummy[0] * x_fac;
-    (*out_y)[pid] = ddummy[1] * x_fac;
-    (*out_z)[pid] = ddummy[2] * x_fac;
+    (*out_x)[pid] = fdummy[0] * x_fac;
+    (*out_y)[pid] = fdummy[1] * x_fac;
+    (*out_z)[pid] = fdummy[2] * x_fac;
    }
-  fprintf(stderr,"Pos[X]=%12.6g Pos[Y]=%12.6g Pos[Z]=%12.6g ... ",*out_x[no_part-1],*out_y[no_part-1],*out_z[no_part-1]);
+  fprintf(stderr,"Pos[X]=%12.6g Pos[Y]=%12.6g Pos[Z]=%12.6g ... ",(*out_x)[no_part-1],(*out_y)[no_part-1],(*out_z)[no_part-1]);
   
   GADGET_SKIP;
   fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);

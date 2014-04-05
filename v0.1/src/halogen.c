@@ -68,7 +68,7 @@ int main(int argc, char **argv){
 
 
 	Malpha[Nalpha-1]=NMIN*mpart*0.99;
-	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho_crit*OVD,mpart, alpha, Malpha, Nalpha, hx, hy, hz)==0)
+	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho_crit*OVD,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz)==0)
 		fprintf(stderr,"Halos placed!\n");
 	else
 		fprintf(stderr,"error in placing the halos\n");

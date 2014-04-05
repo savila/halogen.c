@@ -59,10 +59,10 @@ long check_limit(long i, long N){
 }
 
 
-int place_halos(long NHalosTot, double *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float mp, float rho_ref, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ){
+int place_halos(long NHalosTot, double *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float mp, float rho_ref, long seed, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ){
 
-fprintf(stderr,"Hi! This is place_halos.c v9.0.0\n");
-fprintf(stdout,"Hi! This is place_halos.c v9.0.0\n");
+fprintf(stderr,"Hi! This is place_halos.c v9.2\n");
+fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 
 
 //Initiallising -------------------------------------------------
@@ -99,9 +99,14 @@ fprintf(stdout,"Hi! This is place_halos.c v9.0.0\n");
     		exit(-1);
 	}
 	fprintf(stderr,"Using OMP with %d threads\n",omp_get_max_threads());
-	
-	//Initiallise random numbers
-	srand (time(NULL));
+
+        //Initiallise random numbers
+        if (seed>=0)
+                srand(seed);
+        else
+                srand(t0);
+
+        fprintf(stderr,"input seed: %ld.    time0: %ld\n",seed,t0);
 
 
 	mpart = (double) mp;
