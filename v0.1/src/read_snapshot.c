@@ -13,7 +13,6 @@
 #include <string.h>
 #include <math.h>
 
-#include "utility.h"
 #include "read_snapshot.h"
 /*=============================================================================
  *                              COMMON DEFINES
@@ -30,14 +29,33 @@ unsigned int blklen;
 long         IDmin =  4294967296;
 long         IDmax = -4294967296; //simply for debugging purposes
 
+
 #define MAXSTRING          2048 
-//#define GADGET_SKIP        {ReadUInt(icfile,&blklen,SWAPBYTES);fprintf(stderr,"GADGET_SKIP: block=%d\n",blklen);}
 #define GADGET_SKIP        ReadUInt(icfile,&blklen,SWAPBYTES);
 #define SIZEOFGADGETHEADER 256
 #define MZERO             (1e-10)
 #define X                  0
 #define Y                  1
 #define Z                  2
+
+#define TRUE         1
+#define FALSE        0
+
+
+
+
+/*=============================================================================
+ *                                PROTOTYPES
+ *=============================================================================*/
+
+int ReadFloat          (FILE *fptr,float *n, int swap);
+int ReadDouble         (FILE *fptr,double *n,int swap);
+int ReadUInt           (FILE *fptr,unsigned int *n,int swap);
+int ReadInt            (FILE *fptr,int *n,int swap);
+int ReadChars          (FILE *fptr,char *s,int n);
+
+
+
 
 
 /*=============================================================================
@@ -235,18 +253,15 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
 void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
 {
 
-  
-  double         tot_mass[6];
-  
-  int            i,j,k;
+  int            i;
   long           no_part;
   int            massflag;
   char           DATA[MAXSTRING];
   float          fdummy[3];
   double         ddummy[3];
   double         x_fac, v_fac, m_fac;
-  long           pid, ldummy;
-  unsigned int   idummy;
+  long           pid;
+
   
   /*================= read in GADGET IO header =================*/
   if(FORMAT == 2)
@@ -438,5 +453,148 @@ long get_pid(int i)
   pid += i;
   
   return(pid);
+}
+
+/*
+ Read a possibly byte swapped integer
+ */
+int ReadInt(FILE *fptr,int *n,int swap)
+{
+  unsigned char *cptr,tmp;
+
+  if(sizeof(int) != 4)
+   {
+    fprintf(stderr,"ReadInt: sizeof(int)=%ld and not 4\n",sizeof(int));
+    exit(0);
+   }
+
+  if (fread(n,4,1,fptr) != 1)
+    return(FALSE);
+  if (swap) {
+    cptr = (unsigned char *)n;
+    tmp     = cptr[0];
+    cptr[0] = cptr[3];
+    cptr[3] = tmp;
+    tmp     = cptr[1];
+    cptr[1] = cptr[2];
+    cptr[2] = tmp;
+  }
+  return(TRUE);
+}
+
+/*
+ Read a possibly byte swapped unsigned integer
+ */
+int ReadUInt(FILE *fptr,unsigned int *n,int swap)
+{
+  unsigned char *cptr,tmp;
+
+  if(sizeof(int) != 4)
+   {
+    fprintf(stderr,"ReadUInt: sizeof(int)=%ld and not 4\n",sizeof(int));
+    exit(0);
+   }
+
+  if (fread(n,4,1,fptr) != 1)
+    return(FALSE);
+  if (swap) {
+    cptr = (unsigned char *)n;
+    tmp     = cptr[0];
+    cptr[0] = cptr[3];
+    cptr[3] = tmp;
+    tmp     = cptr[1];
+    cptr[1] = cptr[2];
+    cptr[2] = tmp;
+  }
+  return(TRUE);
+}
+
+/*
+ Read a possibly byte swapped double precision number
+ Assume IEEE
+ */
+int ReadDouble(FILE *fptr,double *n,int swap)
+{
+  unsigned char *cptr,tmp;
+
+  if(sizeof(double) != 8)
+   {
+    fprintf(stderr,"ReadDouble: sizeof(double)=%ld and not 8\n",sizeof(double));
+    exit(0);
+   }
+
+  if (fread(n,8,1,fptr) != 1)
+    return(FALSE);
+  if (swap) {
+    cptr = (unsigned char *)n;
+    tmp     = cptr[0];
+    cptr[0] = cptr[7];
+    cptr[7] = tmp;
+    tmp     = cptr[1];
+    cptr[1] = cptr[6];
+    cptr[6] = tmp;
+    tmp     = cptr[2];
+    cptr[2] = cptr[5];
+    cptr[5] = tmp;
+    tmp     = cptr[3];
+    cptr[3] = cptr[4];
+    cptr[4] = tmp;
+  }
+
+  return(TRUE);
+}
+
+/*
+ Read a possibly byte swapped floating point number
+ Assume IEEE format
+ */
+int ReadFloat(FILE *fptr,float *n, int swap)
+{
+  unsigned char *cptr,tmp;
+
+  if(sizeof(float) != 4)
+   {
+    fprintf(stderr,"ReadFloat: sizeof(float)=%ld and not 4\n",sizeof(float));
+    exit(0);
+   }
+
+  if (fread(n,4,1,fptr) != 1)
+    return(FALSE);
+  if (swap)
+   {
+    cptr = (unsigned char *)n;
+    tmp     = cptr[0];
+    cptr[0] = cptr[3];
+    cptr[3] = tmp;
+    tmp     = cptr[1];
+    cptr[1] = cptr[2];
+    cptr[2] = tmp;
+   }
+  return(TRUE);
+}
+
+
+/*
+ Read an array of n characters
+ NOTE: the difference to ReadString() is that we do not '\0'-terminate the array
+ */
+int ReadChars(FILE *fptr,char *s,int n)
+{
+  int i,c;
+
+  if(sizeof(char) != 1)
+   {
+    fprintf(stderr,"ReadChars: sizeof(char)=%ld and not 1\n",sizeof(char));
+    exit(0);
+   }
+
+  s[0] = '\0';
+  for (i=0;i<n;i++) {
+    c = fgetc(fptr);
+    if (c == EOF)
+      return(FALSE);
+    s[i] = c;
+  }
+  return(TRUE);
 }
 
