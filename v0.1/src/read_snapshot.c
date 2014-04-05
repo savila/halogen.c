@@ -109,8 +109,8 @@ int read_snapshot(char *infile_name, float lunit, float munit, int format, int s
   char    gadget_file[MAXSTRING];
   int     no_gadget_files, i_gadget_file;
   FILE   *icfile;
-  int     ipart;
-  char outname[MAXSTRING];
+
+
 
   
   
@@ -256,7 +256,7 @@ int read_snapshot(char *infile_name, float lunit, float munit, int format, int s
  *=============================================================================*/
 void read_gadget(FILE *icfile)
 {
-  long unsigned  ipart;
+
   
   double         tot_mass[6];
   

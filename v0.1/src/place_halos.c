@@ -7,8 +7,6 @@
 #include "place_halos.h"
  
 
-#define OVD (200.)
-#define rho_crit (27.755e10)
 //#define MAXTRIALS (10)
 
 
@@ -16,11 +14,10 @@
 #define _DEBUG
 //#define _ULTRADEBUG
 #define _PERIODIC
-#define _CRIT
 #define _ONLYBIG
 
 
-float rho_ref;
+
 
 
 long select_cell_rnd(long *, long *, long *); 
@@ -46,15 +43,15 @@ float square(float a){
 }
 
 
-float R200_from_mass(float Mass) {
-	return  (float) pow((3./(4.*OVD*rho_ref*M_PI)*Mass),(1./3.));
+float R_from_mass(float Mass,float rho) {
+	return  (float) pow((3./(4.*rho*M_PI)*Mass),(1./3.));
 }
 
 long check_limit(long i, long N){
 	if (i==N)
 		return 0;
 	if (i<0 || i>N){
-		fprintf(stderr,"particle assigned to cell %d\nExiting...",i);
+		fprintf(stderr,"particle assigned to cell %ld\nExiting...",i);
 		exit(0);
 	}
 	return i;
@@ -62,7 +59,7 @@ long check_limit(long i, long N){
 }
 
 
-int place_halos(long NHalosTot, double *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ){
+int place_halos(long NHalosTot, double *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float mp, float rho_ref, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ){
 
 fprintf(stderr,"Hi! This is place_halos.c v9.0.0\n");
 fprintf(stdout,"Hi! This is place_halos.c v9.0.0\n");
@@ -106,17 +103,11 @@ fprintf(stdout,"Hi! This is place_halos.c v9.0.0\n");
 	//Initiallise random numbers
 	srand (time(NULL));
 
-	#ifdef _CRIT
-	rho_ref = rho_crit;
-	#else
-	rho_ref = mp/(L*L*L)*NTotPart;
-	#endif	
+
 	mpart = (double) mp;
 
 
-#ifdef _CRIT
-	fprintf(stderr,"#def _CRIT\n");
-#endif
+
 #ifdef _VERB
 	fprintf(stderr,"#def _VERB\n");
 #endif 
@@ -326,7 +317,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.0.0\n");
                		HaloX[ihalo] = PartX[ipart];
                		HaloY[ihalo] = PartY[ipart];
                		HaloZ[ihalo] = PartZ[ipart];
-			R=R200_from_mass(HaloMass[ihalo]);
+			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]=R;
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
 			if (check==0){

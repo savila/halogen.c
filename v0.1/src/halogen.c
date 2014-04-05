@@ -17,6 +17,9 @@
 #define NMIN 20
 #define MMAX 1.0e16 //unused
 
+#define OVD (200.)
+#define rho_crit (27.755e10)
+
 #define Nalpha 1
 int Nlin = 64;
 double alpha[Nalpha]={2.0};
@@ -65,7 +68,7 @@ int main(int argc, char **argv){
 
 
 	Malpha[Nalpha-1]=NMIN*mpart*0.99;
-	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, mpart, alpha, Malpha, Nalpha, hx, hy, hz)==0)
+	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho_crit*OVD,mpart, alpha, Malpha, Nalpha, hx, hy, hz)==0)
 		fprintf(stderr,"Halos placed!\n");
 	else
 		fprintf(stderr,"error in placing the halos\n");
