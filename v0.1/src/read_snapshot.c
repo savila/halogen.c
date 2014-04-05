@@ -70,20 +70,11 @@ struct info_gadget
   
 } gadget;
 
-struct particle_data //should get rid of this struct 
-{
-  double     Pos[3];       /* particle position   */  
-  double     Vel[3];       /* particle velocity   */  
-  double     Mass;         /* particle mass       */
-  double     u;            /* gas internal energy */
-  long       ID;           /* particle IDs        */
-} *Part;
-
 
 /*=============================================================================
  *                                PROTOTYPES
  *=============================================================================*/
-void read_gadget(FILE *icfile);
+void read_gadget(FILE *icfile,float **out_x,float **out_y, float **out_z);
 long get_pid(int i);
 
 
@@ -168,7 +159,7 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
         gadget.i_gadget_file = i_gadget_file;
         
         /* read files... */
-        read_gadget(icfile);
+        read_gadget(icfile,out_x,out_y,out_z);
         fclose(icfile);
        } 
       
@@ -183,7 +174,8 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
     else
      {
       /* there are no multi-GADGET files */
-      fprintf(stderr,"\n\ninput: could not open file with IC's  %s\n",infile_name);
+      fprintf(stderr,"\n\ninput: could not open file  %s\n",infile_name);
+      fprintf(stderr,"Remember: if using multiple files, do not include the dot at the end of the filename.\n");
       exit(0);
      }
    }
@@ -203,7 +195,7 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
     gadget.np[4]     = (long *) calloc(gadget.no_gadget_files, sizeof(long *));
     gadget.np[5]     = (long *) calloc(gadget.no_gadget_files, sizeof(long *));
     
-    read_gadget(icfile);
+    read_gadget(icfile,out_x,out_y,out_z);
     fclose(icfile);
     
     /* remove temporary storage again */
@@ -217,26 +209,17 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
   
   
   /* check the range of the IDs of "halo" particles */
+  #ifdef _DEBUG
   fprintf(stderr,"\nquick ID check:\n");
   fprintf(stderr,"   IDmin = %ld\n",IDmin);
   fprintf(stderr,"   IDmax = %ld\n",IDmax);
   fprintf(stderr,"   IDmax-IDmin = %ld  vs.  nall[1] = %d\n\n",IDmax-IDmin,gadget.header.nall[1]);
-  //exit(0);
+  #endif 
   
 
 	*out_mp  = GADGET_MUNIT*gadget.header.massarr[1];
 	*out_Np  = gadget.nall; 
 	*out_L   = gadget.header.BoxSize;
-	(*out_x) = (float *) calloc(*out_Np,sizeof(float)); 
-	(*out_y) = (float *) calloc(*out_Np,sizeof(float)); 
-	(*out_z) = (float *) calloc(*out_Np,sizeof(float)); 
-
-	long i;
-	for (i=0; i<gadget.nall; i++){
-		(*out_x)[i]=Part[i].Pos[X];
-		(*out_y)[i]=Part[i].Pos[Y];
-		(*out_z)[i]=Part[i].Pos[Z];
-	}
 
 
 	return 0;
@@ -249,7 +232,7 @@ int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, f
 /*=============================================================================
  *                                READ_GADGET
  *=============================================================================*/
-void read_gadget(FILE *icfile)
+void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
 {
 
   
@@ -272,7 +255,6 @@ void read_gadget(FILE *icfile)
     fread(DATA,sizeof(char),blklen,icfile);
     DATA[4] = '\0';
     fprintf(stderr,"reading... %s\n",DATA);
-    //GADGET_SKIP;
     
     GADGET_SKIP;
    }
@@ -311,7 +293,7 @@ void read_gadget(FILE *icfile)
   
   GADGET_SKIP;
   /*================= read in GADGET IO header =================*/
-  //exit(0);
+
   
   /* keep track of no. of particles in each GADGET file */
   gadget.np[0][gadget.i_gadget_file] = gadget.header.np[0];
@@ -338,7 +320,7 @@ void read_gadget(FILE *icfile)
       massflag=1;  
    }  
   
-  /* be verbose */
+  #ifdef _VERB
   fprintf(stderr,"expansion factor: %lf\n",             gadget.header.expansion);
   fprintf(stderr,"redshift:         %lf\n",             gadget.header.redshift);
   fprintf(stderr,"boxsize:          %lf (%lf Mpc/h)\n", gadget.header.BoxSize,gadget.header.BoxSize*GADGET_LUNIT);
@@ -353,19 +335,30 @@ void read_gadget(FILE *icfile)
   fprintf(stderr,"stars:  np[4]=%9d\t nall[4]=%9d\t massarr[4]=%g\n",gadget.header.np[4],gadget.header.nall[4],gadget.header.massarr[4]); 
   fprintf(stderr,"bndry:  np[5]=%9d\t nall[5]=%9d\t massarr[5]=%g\n",gadget.header.np[5],gadget.header.nall[5],gadget.header.massarr[5]); 
   
-  fprintf(stderr,"\n-> reading %ld particles from  GADGET file #%d/%d...\n\n", no_part, gadget.i_gadget_file+1, gadget.no_gadget_files);
-  
+  fprintf(stderr,"\n-> reading %ld/%ld particles from  GADGET file #%d/%d...\n\n", no_part,gadget.nall, gadget.i_gadget_file+1, gadget.no_gadget_files);
+  #endif
   /* allocate particle array (only once when reading the first file, of course!) */
   if(gadget.i_gadget_file == 0)
    {
-    fprintf(stderr,"-> allocating %f GB of RAM for particles\n\n",(float)(gadget.nall*sizeof(struct particle_data))/1024./1024./1024.);
-    if(!(Part=(struct particle_data *) calloc(gadget.nall, sizeof(struct particle_data))))
+    fprintf(stderr,"-> allocating %f GB of RAM for particles\n\n",(float)(gadget.nall*3*sizeof(float))/1024./1024./1024.);
+    if(!((*out_x)=(float *) calloc(gadget.nall, sizeof(float))))
      {
       fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
       exit(1);
      }
+    if(!((*out_y)=(float *) calloc(gadget.nall, sizeof(float))))
+     {
+      fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
+      exit(1);
+     }
+    if(!((*out_z)=(float *) calloc(gadget.nall, sizeof(float))))
+     {
+      fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
+      exit(1);
+     }
+
    }
-  
+   
   /*================= read in GADGET particles =================*/
   if(FORMAT == 2)
    {
@@ -404,304 +397,34 @@ void read_gadget(FILE *icfile)
        ddummy[2] = fdummy[2];
       }
      
-    /* get proper position in Part[] array */
+    /* get proper position in  array */
     pid = get_pid(i);
     
     /* storage and conversion to comoving physical units */
-    Part[pid].Pos[0] = ddummy[0] * x_fac;
-    Part[pid].Pos[1] = ddummy[1] * x_fac;
-    Part[pid].Pos[2] = ddummy[2] * x_fac;      
+    (*out_x)[pid] = ddummy[0] * x_fac;
+    (*out_y)[pid] = ddummy[1] * x_fac;
+    (*out_z)[pid] = ddummy[2] * x_fac;
    }
-  fprintf(stderr,"Pos[X]=%12.6g Pos[Y]=%12.6g Pos[Z]=%12.6g ... ",Part[no_part-1].Pos[X],Part[no_part-1].Pos[Y],Part[no_part-1].Pos[Z]);
+  fprintf(stderr,"Pos[X]=%12.6g Pos[Y]=%12.6g Pos[Z]=%12.6g ... ",*out_x[no_part-1],*out_y[no_part-1],*out_z[no_part-1]);
   
   GADGET_SKIP;
   fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
   /*================= read in GADGET particles =================*/
   
-  
-  
-  /*================= read in GADGET velocities =================*/
-  if(FORMAT == 2)
-   {
-    GADGET_SKIP;
-    fread(DATA,sizeof(char),blklen,icfile);
-    DATA[4] = '\0';
-    fprintf(stderr,"reading... %s",DATA);
-    //GADGET_SKIP;
-    
-    GADGET_SKIP;
-   }
-  else
-   {
-    fprintf(stderr,"reading ");
-   }
-  
-  GADGET_SKIP;
-  fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
-  
-  for(i=0;i<no_part;i++)
-   {
-    /* read */
-    if(DGADGET)
-     {
-      ReadDouble(icfile,&(ddummy[0]),SWAPBYTES);
-      ReadDouble(icfile,&(ddummy[1]),SWAPBYTES);
-      ReadDouble(icfile,&(ddummy[2]),SWAPBYTES);
-     }
-    else
-     {
-      ReadFloat(icfile,&(fdummy[0]),SWAPBYTES);
-      ReadFloat(icfile,&(fdummy[1]),SWAPBYTES);
-      ReadFloat(icfile,&(fdummy[2]),SWAPBYTES);
-      ddummy[0] = fdummy[0];
-      ddummy[1] = fdummy[1];
-      ddummy[2] = fdummy[2];
-     }
-    
-    /* get proper position in Part[] array */
-    pid = get_pid(i);
-    
-    /* storage and conversion to comoving physical units */
-    Part[pid].Vel[0] = ddummy[0] * v_fac;
-    Part[pid].Vel[1] = ddummy[1] * v_fac;
-    Part[pid].Vel[2] = ddummy[2] * v_fac; 
-   }
-  fprintf(stderr,"Vel[X]=%12.6g Vel[Y]=%12.6g Vel[Z]=%12.6g ... ",Part[no_part-1].Vel[X],Part[no_part-1].Vel[Y],Part[no_part-1].Vel[Z]);
-  
-  GADGET_SKIP;
-  fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
-  /*================= read in GADGET velocities =================*/
-  
-  
-  /*================= read in GADGET id's =================*/
-  if(FORMAT == 2)
-   {
-    GADGET_SKIP;
-    fread(DATA,sizeof(char),blklen,icfile);
-    DATA[4] = '\0';
-    fprintf(stderr,"reading... %s",DATA);
-    //GADGET_SKIP;
-    
-    GADGET_SKIP;
-   }
-  else
-   {
-    fprintf(stderr,"reading ");
-   }
-  
-  GADGET_SKIP;
-  fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
-  
-  for(i=0;i<no_part;i++)
-   {
-    /* get proper position in Part[] array */
-    pid = get_pid(i);
 
-    if(LGADGET)
-     {
-      ReadLong(icfile,&ldummy,SWAPBYTES);
-      Part[pid].ID = ldummy;
-     }
-    else
-     {
-      ReadUInt(icfile,&idummy,SWAPBYTES);
-      Part[pid].ID = (long) idummy;
-     }
-    
-    /* check the ID range of the "halo" particles */
-    if(gadget.header.np[0] <= i && i < gadget.header.np[0]+gadget.header.np[1])
-     {
-      if(Part[pid].ID > IDmax) IDmax = Part[pid].ID; 
-      if(Part[pid].ID < IDmin) IDmin = Part[pid].ID; 
-     }
-   }
-  
-  fprintf(stderr,"ID=%12ld ...  ",Part[no_part-1].ID);
-  
-  GADGET_SKIP;
-  fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
-  /*================= read in GADGET id's =================*/
-  
-  
-  k = 0;
-  /* massflag == 1 indicates that massarr[i] = 0 and hence need to read in particle masses */
+ 
+  /* massflag == 1 indicates that massarr[i] = 0 which shouldnt be the case for HALOGEN */
   if(massflag==1) 
    {
-    /*================= read in GADGET individual particle masses =================*/
-    if(FORMAT == 2)
-     {
-      GADGET_SKIP;
-      fread(DATA,sizeof(char),blklen,icfile);
-      DATA[4] = '\0';
-      fprintf(stderr,"reading... %s",DATA);
-      //GADGET_SKIP;
-      
-      GADGET_SKIP;
-     }
-    else
-     {
-      fprintf(stderr,"reading ");
-     }
-    
-    GADGET_SKIP;
-    fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
-    
-    for(i=0;i<6;i++)
-     {
-      tot_mass[i] = 0.;
-      if (gadget.header.np[i] > 0 && gadget.header.massarr[i] < MZERO  ) 
-       {
-        
-        fprintf(stderr,"  %d    ",i);
-        
-        for(j=0; j<gadget.header.np[i]; j++)
-         {
-          /* read */
-          if(DGADGET)
-           {
-            ReadDouble(icfile,&(ddummy[0]),SWAPBYTES);
-           }
-          else
-           {
-            ReadFloat(icfile,&(fdummy[0]),SWAPBYTES);
-            ddummy[0] = fdummy[0];
-           }
-
-          /* get proper position in Part[] array */
-          pid = get_pid(k);
-          
-          /* store */
-          Part[pid].Mass  = ddummy[0];
-          tot_mass[i]    += ddummy[0];
-          k++;
-         }
-       }
-      else
-       {
-        /* simply copy appropriate massarr[i] to particles */
-        for(j=0; j<gadget.header.np[i]; j++) 
-         {
-          /* get proper position in Part[] array */
-          pid = get_pid(k);
-                   
-          /* store */
-          Part[pid].Mass = gadget.header.massarr[i];
-          k++;
-         }
-        tot_mass[i] = gadget.header.np[i]*gadget.header.massarr[i];
-       }
-     }
-    
-    GADGET_SKIP;
-    fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
-    /*================= read in GADGET individual particle masses =================*/
-   }
-  
-  /* simply copy appropriate massarr[i] to particles */
-  else 
-   {
-    k=0;
-    for(i=0;i<6;i++)
-     {
-      for(j=0;j<gadget.header.np[i];j++) 
-       {
-        /* get proper position in Part[] array */
-        pid = get_pid(k);
-             
-        /* store */
-        Part[pid].Mass = gadget.header.massarr[i];
-        k++;
-       }
-      tot_mass[i] = gadget.header.np[i]*gadget.header.massarr[i];
-     }
-   }
-  
-  /*============ convert masses to Msun/h and set particle type ============*/
-  k=0;
-  
-  // 1. gas (no fiddling with Part[].u, please!)
-  i=0;
-  for(j=0; j<gadget.header.np[i]; j++)
-   {
-    pid = get_pid(k);
-    Part[pid].Mass *= m_fac;
-    k++;
-   }
-  
-  // 2. all other species
-  for(i=1; i<6; i++)
-   {
-    for(j=0; j<gadget.header.np[i]; j++)
-     {
-      /* get proper position in Part[] array */
-      pid = get_pid(k);
-      Part[pid].Mass *= m_fac;
-      Part[pid].u     = -i;
-      k++;
-     }
+	fprintf(stderr,"ERROR: HALOGEN does not expect to encounter variable masses\n If needed, please, contact us to implement it\n");
+	exit(0);
    }
 
-  /*================= read in GADGET gas particle energies =================*/
-  if(gadget.header.np[0] > 0) 
-   {      
-     if(FORMAT == 2)
-      {
-       GADGET_SKIP;
-       fread(DATA,sizeof(char),blklen,icfile);
-       DATA[4] = '\0';
-       fprintf(stderr,"reading... %s",DATA);
-       //GADGET_SKIP;
-       
-       GADGET_SKIP;
-      }
-     else
-      {
-       fprintf(stderr,"reading ");
-      }
-     
-     GADGET_SKIP; 
-     fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
-     
-     for(i=0; i<gadget.header.np[0]; i++)
-      {
-       /* store */
-       if(DGADGET)
-        {
-         ReadDouble(icfile,&(ddummy[0]),SWAPBYTES);
-        }
-       else
-        {
-         ReadFloat(icfile,&(fdummy[0]),SWAPBYTES);
-         ddummy[0] = fdummy[0];
-        }
-       
-       /* get proper position in Part[] array */
-       pid = get_pid(i);
-              
-       /* store additional gas particle property */
-       Part[pid].u = ddummy[0];         
-      }
-     
-     GADGET_SKIP;
-     fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
-   } 
-  /*================= read in GADGET gas particle energies =================*/
   
-  
-  /* be verbose */
-  fprintf(stderr,"\n");
-  if(gadget.header.np[0] > 0) fprintf(stderr,"    gas:    tot_mass[0]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[0]*GADGET_MUNIT,tot_mass[0]/(double)gadget.header.np[0]*GADGET_MUNIT);
-  if(gadget.header.np[1] > 0) fprintf(stderr,"    halo:   tot_mass[1]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[1]*GADGET_MUNIT,tot_mass[1]/(double)gadget.header.np[1]*GADGET_MUNIT);
-  if(gadget.header.np[2] > 0) fprintf(stderr,"    disk:   tot_mass[2]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[2]*GADGET_MUNIT,tot_mass[2]/(double)gadget.header.np[2]*GADGET_MUNIT);
-  if(gadget.header.np[3] > 0) fprintf(stderr,"    bulge:  tot_mass[3]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[3]*GADGET_MUNIT,tot_mass[3]/(double)gadget.header.np[3]*GADGET_MUNIT);
-  if(gadget.header.np[4] > 0) fprintf(stderr,"    stars:  tot_mass[4]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[4]*GADGET_MUNIT,tot_mass[4]/(double)gadget.header.np[4]*GADGET_MUNIT);
-  if(gadget.header.np[5] > 0) fprintf(stderr,"    bndry:  tot_mass[5]=%16.8g Msun/h (%16.8g Msun/h per particle)\n",tot_mass[5]*GADGET_MUNIT,tot_mass[5]/(double)gadget.header.np[5]*GADGET_MUNIT);
-  
-  fprintf(stderr,"===================================================================\n");
 }
 
 /*=============================================================================
- *                        get proper position in Part[] array
+ *                        get proper position in *out_x[] array
  *=============================================================================*/
 long get_pid(int i)
 {
