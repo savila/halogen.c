@@ -35,7 +35,7 @@ int main(int argc, char **argv){
 		return -1;
 	}
 	int format;
-	float Lbox, mpart, *x, *y, *z, *hx, *hy, *hz;	
+	float Lbox, mpart, *x, *y, *z, *hx, *hy, *hz, om_0;	
 	char inname[256], outname[256], mf_file[256];
 	long Npart, Nhalos;
 	double *HaloMass;
@@ -46,7 +46,7 @@ int main(int argc, char **argv){
 	strcpy(outname,argv[4]);
 
 	fprintf(stderr,"Reading Gadget files...\n");
-	if (read_snapshot(inname, LUNIT, MUNIT, format,SWP, LGADGET, DGADGET, &x, &y, &z, &Npart, &mpart, &Lbox)==0)
+	if (read_snapshot(inname, format, &x, &y, &z, &Npart, &mpart, &Lbox, &om_0)==0)
 		fprintf(stderr,"Gadget file(s) correctly read!\n");
 	else {
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);

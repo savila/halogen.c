@@ -1,21 +1,10 @@
 /*==========================================================================
  * read_gadget:
  * ------------
+ * initially coded by Alexander Knebe, modified by Santiago Avila
  *
- * provides the framewwork for reading (mulitple) GADGET files
+ * routine to read the data of interest from one gadget snapshot
  *
- *
- * command line arguments:
- *
- * infile     name of GADGET file (or prefix when reading multiple files)
- * lunit      conversion factor to obtain Mpc/h
- * munit      conversion factor to obtain Msun/h
- * format     either 1 (GADGET1) or 2 (GADGET2)
- * swap       either 1 (perform byteswap) or 0 (no byteswap)
- * lgadget    either 1 (long IDs in GADGET file) or 0 (int IDs in GADGET file)
- * dgadget    either 1 (double pos[] in GADGET file) or 0 (float pos[] in GADGET file)
- *
- *SANTI modification: converted to a module that reads positions and other simulation properties.
  *=========================================================================*/
 
 #include <stddef.h>
@@ -50,9 +39,6 @@ long         IDmax = -4294967296; //simply for debugging purposes
 #define Y                  1
 #define Z                  2
 
-#define EXTRACT_REGION
-
-#define output ("Allpart_lcdm_dm_128.dat")
 
 /*=============================================================================
  *                                STRUCTURES
@@ -84,7 +70,7 @@ struct info_gadget
   
 } gadget;
 
-struct particle_data 
+struct particle_data //should get rid of this struct 
 {
   double     Pos[3];       /* particle position   */  
   double     Vel[3];       /* particle velocity   */  
@@ -105,31 +91,40 @@ long get_pid(int i);
 /*=============================================================================
  *                                   MAIN
  *=============================================================================*/
-int read_snapshot(char *infile_name, float lunit, float munit, int format, int swapbytes, int lgadget, int dgadget, float **out_x, float **out_y, float **out_z, long *out_Np, float *out_mp, float *out_L){
+int read_snapshot(char *infile_name, int format, float **out_x, float **out_y, float **out_z, long *out_Np, float *out_mp, float *out_L, float *out_omega_0){
   char    gadget_file[MAXSTRING];
   int     no_gadget_files, i_gadget_file;
   FILE   *icfile;
 
-
-
   
-  
-
-  GADGET_LUNIT = (double) lunit;
-  GADGET_MUNIT = (double) munit;
   FORMAT       = format;
-  SWAPBYTES    = swapbytes;
-  LGADGET      = lgadget;
-  DGADGET      = dgadget;
   
-  fprintf(stderr,"=====================================================\n");
-  fprintf(stderr," read_gadget:\n\n");
-  fprintf(stderr,"    infile = %s\n",infile_name);
-  fprintf(stderr,"    lunit  = %g\n",GADGET_LUNIT);
-  fprintf(stderr,"    munit  = %g\n",GADGET_MUNIT);
-  fprintf(stderr,"    format = %d\n",FORMAT);
-  fprintf(stderr,"    swap   = %d\n",SWAPBYTES);
-  fprintf(stderr,"=====================================================\n");
+  #ifdef _KPC
+  	GADGET_LUNIT = 1000.;
+  #else
+	GADGET_LUNIT=1.;
+  #endif
+
+  GADGET_MUNIT = 1.0e10;
+
+  #ifdef _SWAPBYTES
+  	SWAPBYTES    = 1;
+  #else
+	SWAPBYTES    =0;
+  #endif
+
+
+  #ifdef _LONGGADGET
+  	LGADGET      = 1;
+  #else
+	LGADGET =0;
+  #endif
+
+  #ifdef _DOUBLEGADGET
+  	DGADGET      = 1;
+  #else
+	DGADGET      = 0;
+  #endif
   
   /*==================================
    * are there multiple GADGET files?

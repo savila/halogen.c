@@ -1,1 +1,1 @@
-int read_snapshot(char *, float, float, int , int , int , int , float **, float **, float **, long *, float *, float *);
+int read_snapshot(char *, int, float **, float **, float **, long *, float *, float *, float *);
