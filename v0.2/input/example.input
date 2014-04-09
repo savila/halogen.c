@@ -1,0 +1,40 @@
+#******** HALOGEN input file *******#
+
+
+######### GENERAL INPUTS ########
+
+#Full path to the (2LPT) Snapshot
+Snapshot
+	
+#Gadget format (1 or 2)
+GadgetFormat	1
+
+#Full path to the tabulated integrated mass function N(>M) (Format: )
+MassFunctionFile	input/ngtm_2.txt
+
+#Full Path to the output
+OutputFile	output/halos_2
+
+#Number of Cells per side of the grid used
+NCellsLin
+
+#Full path to the tabulated alpha(Mass) realtion
+alphaFile	
+
+#Reference densisty: choose "crit" for rho_critical or "matter" for rho_matter
+rho_ref		crit
+
+#Density at which the edge of the halo is defined in units of rho_ref
+Overdensity	
+
+#Minimum halo mass in units of the simulation DM particle
+MinNumPartPerHalo	20.
+
+
+
+######### Especific Gadget formats ########
+GadL_Unit 	1.0
+GadM_Unit	1.0e10
+GadSwap		0
+GadDouble	0
+GadLong		0

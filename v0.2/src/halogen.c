@@ -46,23 +46,35 @@ int read_input_file(char *);
 int write_halogen_cat(char *, float *, float *, float *, float *, float *, long);
 
 int main(int argc, char **argv){
-	if (argc!=5){
-		fprintf(stderr,"usage: %s gadget_file gadget_format mass_function_file output_file\n",argv[0]);	
+
+	fprintf(stderr,"\n*******************************************************************\n");
+	fprintf(stderr,"**                                                               **\n");
+	fprintf(stderr,"**            =           HALOGEN V0.3          =                **\n");
+	fprintf(stderr,"**                                                               **\n");
+	fprintf(stderr,"**                                                               **\n");
+	fprintf(stderr,"**                                            let there be dark  **\n");
+	fprintf(stderr,"*******************************************************************\n\n");
+
+	if (argc!=2){
+		fprintf(stderr,"usage: %s inputfile\n",argv[0]);	
 		return -1;
 	}
-	int format;
-	float Lbox, mpart, *x, *y, *z, *hx, *hy, *hz, *hR, om_0;	
-	char inname[256], outname[256], mf_file[256];
+
+	float Lbox, mpart, *x, *y, *z, *hx, *hy, *hz, *hR, om_m;	
+	char inname[256];
 	long Npart, Nhalos;
-	float *HaloMass;
+	float *HaloMass, rho;
 
 	strcpy(inname,argv[1]);
-	format = atoi(argv[2]);
-	strcpy(mf_file,argv[3]);
-	strcpy(outname,argv[4]);
+
+	fprintf(stderr,"Reading input file...\n");
+	if (read_input_file(inname)<0)
+		return -1;
+	fprintf(stderr,"... file read correctly!\n");
+
 
 	fprintf(stderr,"Reading Gadget files...\n");
-	if (read_snapshot(inname, format, &x, &y, &z, &Npart, &mpart, &Lbox, &om_0)==0)
+	if (read_snapshot(Snapshot, format, &x, &y, &z, &Npart, &mpart, &Lbox, &om_m)==0)
 		fprintf(stderr,"Gadget file(s) correctly read!\n");
 	else {
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);
@@ -74,7 +86,7 @@ int main(int argc, char **argv){
 	fprintf(stderr,"x[%ld]= %f, y[%ld]= %f, z[%ld]= %f\n",Npart-1,x[Npart-1],Npart-1,y[Npart-1],Npart-1,z[Npart-1]);
 
 
-	Nhalos = populate_mass_function(mf_file,Mmin*mpart,Lbox,&HaloMass);
+	Nhalos = populate_mass_function(MassFunctionFile,Mmin*mpart,Lbox,&HaloMass);
 	if (Nhalos<0)
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 
@@ -83,14 +95,17 @@ int main(int argc, char **argv){
 	hz = (float *) calloc(Nhalos,sizeof(float));
 	hR = (float *) calloc(Nhalos,sizeof(float));
 
+	if (strcmp(rho_ref,"crit")==0)
+		rho = OVD*rho_crit;
+	else 
+		rho = OVD*rho_crit*om_m;
 
-	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho_crit*OVD,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz,hR)==0)
+	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz,hR)==0)
 		fprintf(stderr,"Halos placed!\n");
 	else
 		fprintf(stderr,"error in placing the halos\n");
-
 	
-	write_halogen_cat(outname,hx,hy,hz,HaloMass,hR,Nhalos);
+	write_halogen_cat(OutputFile,hx,hy,hz,HaloMass,hR,Nhalos);
 	return 0;	
 }
 
@@ -122,12 +137,12 @@ int read_input_file(char *name){
 		return -1;
 	}
         while(fgets(line,LINELENGTH,f)!=NULL) {	
-                if (line[0] != '#') {			//Omit comment lines
-			sscanf(line,"%s",word);
-			for (i=0;i<NParam;i++)
+                if (line[0] != '#') {				//Omit comment lines
+			if (sscanf(line,"%s",word)!=EOF){ 	//Check it is not an empty line
+			  for (i=0;i<NParam;i++)		//Find the parameter specified
 				if (strcmp(ParameterList[i],word)==0)
 					break;
-			switch (i){	
+			  switch (i){	
 				case 0:
 					sscanf(line,"%s",Snapshot);
 					if (ParameterSet[i]>0)
@@ -190,6 +205,10 @@ int read_input_file(char *name){
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					if ((strcmp(rho_ref,"crit")!=0) && (strcmp(rho_ref,"matter")!=0)){
+							fprintf(stderr,"ERROR: Not valid option for %s: %s.\nPlease select \"crit\" or \"matter\". \n",word,rho_ref);
+							return -1;
+					}
 					ParameterSet[i]++;
 					break;
 
@@ -260,6 +279,7 @@ int read_input_file(char *name){
 					fprintf(stderr,"WARNING: Unknown parameter %s\n",word);
 					break;
 			}//switch
+		  }// if (non-empty line)
 		}//if (no comment line)
 	}//while	
 	fclose(f);
@@ -285,7 +305,7 @@ int read_input_file(char *name){
 	Malpha = (double *) calloc(Nalpha,sizeof(double));
 	
 	if ((f = fopen(alphaFile,"r"))==NULL){
-		fprintf(stderr,"Could not open input file %s\n",alphaFile);
+		fprintf(stderr,"Could not open alpha file %s\n",alphaFile);
 		return -1;
 	}
 
