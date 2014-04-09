@@ -1,3 +1,6 @@
+/*=============================================================================
+ *                              LIBRARIES
+ *=============================================================================*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -9,41 +12,50 @@
 #include "place_halos.h"
 
 
-float LUNIT;
-float MUNIT;
-int SWP;
-int LGADGET;
-int DGADGET;
-float Mmin;
+/*=============================================================================
+ *                              COMMON DEFINES
+ *=============================================================================*/
 
-
-float OVD;
-char rho_ref[8];
 #define rho_crit (27.755e10)
-
-int Nalpha=0;
-int Nlin;
-double *alpha;
-double *Malpha;
-
 #define LINELENGTH 256
-
 #define NParam 14
-#define NParamOpt 5
+
 char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile","OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","MinNumPartPerHalo","GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong"};
 int ParameterSet[NParam];
 int NParametersSet = 0;
-
 
 char Snapshot[LINELENGTH];
 char OutputFile[LINELENGTH],MassFunctionFile[LINELENGTH], alphaFile[LINELENGTH];
 int format;
 
+int Nlin;
+float Mmin;
+float OVD;
+char rho_ref[8];
 
+int Nalpha=0;
+double *alpha;
+double *Malpha;
+
+float LUNIT, MUNIT;
+int SWP, LGADGET, DGADGET;
+
+
+
+/*=============================================================================
+ *                              PROTOTYPES
+ *=============================================================================*/
 
 int read_input_file(char *);
 
 int write_halogen_cat(char *, float *, float *, float *, float *, float *, long);
+
+
+
+
+/*=============================================================================
+ *                              MAIN()
+ *=============================================================================*/
 
 int main(int argc, char **argv){
 
@@ -80,34 +92,55 @@ int main(int argc, char **argv){
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);
 		return -1;
 	}
-	fprintf(stderr,"Check: Npart=%ld, mpart=%e, Lbox=%f\n",Npart,mpart,Lbox);
+	
+	#ifdef _VERB
+	fprintf(stderr,"\nCheck: Npart=%ld, mpart=%e, Lbox=%f\n",Npart,mpart,Lbox);
 	fprintf(stderr,"x[0]= %f, y[0]= %f, z[0]= %f\n",x[0],y[0],z[0]);
 	fprintf(stderr,"      ...\n");
-	fprintf(stderr,"x[%ld]= %f, y[%ld]= %f, z[%ld]= %f\n",Npart-1,x[Npart-1],Npart-1,y[Npart-1],Npart-1,z[Npart-1]);
+	fprintf(stderr,"x[%ld]= %f, y[%ld]= %f, z[%ld]= %f\n\n",Npart-1,x[Npart-1],Npart-1,y[Npart-1],Npart-1,z[Npart-1]);
+	#endif
 
-
+	//Generate the halo masses from the mass function
 	Nhalos = populate_mass_function(MassFunctionFile,Mmin*mpart,Lbox,&HaloMass);
 	if (Nhalos<0)
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 
+	//Allocalte memory for the halo XYZ and R
 	hx = (float *) calloc(Nhalos,sizeof(float));
 	hy = (float *) calloc(Nhalos,sizeof(float));
 	hz = (float *) calloc(Nhalos,sizeof(float));
 	hR = (float *) calloc(Nhalos,sizeof(float));
 
+	
 	if (strcmp(rho_ref,"crit")==0)
 		rho = OVD*rho_crit;
 	else 
 		rho = OVD*rho_crit*om_m;
 
+	//place the halos
 	if (place_halos(Nhalos, HaloMass, Nlin, Npart, x, y, z, Lbox, rho,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz,hR)==0)
-		fprintf(stderr,"Halos placed!\n");
+		fprintf(stderr,"\nHalos placed!\n");
 	else
 		fprintf(stderr,"error in placing the halos\n");
 	
+	//writting output
 	write_halogen_cat(OutputFile,hx,hy,hz,HaloMass,hR,Nhalos);
+
+	free(hx);free(hy);free(hz);free(hR);
+	free(alpha); free(Malpha);
+
+
+	fprintf(stderr,"\n*******************************************************************\n");
+	fprintf(stderr,"**                        ... and there were dark matter haloes  **\n");
+	fprintf(stderr,"*******************************************************************\n\n");
+
 	return 0;	
 }
+
+
+/*=============================================================================
+ *                              I/O
+ *=============================================================================*/
 
 int write_halogen_cat(char *filename, float *x, float *y, float *z, float *M, float *R,long N){
 	FILE *f;
@@ -144,67 +177,74 @@ int read_input_file(char *name){
 					break;
 			  switch (i){	
 				case 0:
-					sscanf(line,"%s",Snapshot);
+					sscanf(line,"%s %s",word,Snapshot);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %s.\n",word,Snapshot);
 					ParameterSet[i]++;
 					break;
 				case 1:
-					sscanf(line,"%d",&format);
+					sscanf(line,"%s %d",word,&format);
 					if (format!=1 && format !=2){
-						fprintf(stderr,"ERROR: invalid format: %d. Please select 1 or 2\n",format);
+						fprintf(stderr,"ERROR: invalid parameter %s: %d. Please select 1 or 2\n",word,format);
 						return -1;
 					}	
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %d.\n",word,format);
 					ParameterSet[i]++;
 					break;
 					
 				case 2:
-					sscanf(line,"%s",MassFunctionFile);
+					sscanf(line,"%s %s",word,MassFunctionFile);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %s.\n",word,MassFunctionFile);
 					ParameterSet[i]++;
 					break;
 
 				case 3:
-					sscanf(line,"%s",OutputFile);
+					sscanf(line,"%s %s",word,OutputFile);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %s.\n",word,OutputFile);
 					ParameterSet[i]++;
 					break;
 
 				case 4:
-					sscanf(line,"%d",&Nlin);
+					sscanf(line,"%s %d",word,&Nlin);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %d.\n",word,Nlin);
 					ParameterSet[i]++;
 					break;
 				case 5:
-					sscanf(line,"%s",alphaFile);
+					sscanf(line,"%s %s",word,alphaFile);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %s.\n",word,alphaFile);
 					ParameterSet[i]++;
 					break;
 
 				case 6:
-					sscanf(line,"%s",rho_ref);
+					sscanf(line,"%s %s",word,rho_ref);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %s.\n",word,rho_ref);
 					if ((strcmp(rho_ref,"crit")!=0) && (strcmp(rho_ref,"matter")!=0)){
 							fprintf(stderr,"ERROR: Not valid option for %s: %s.\nPlease select \"crit\" or \"matter\". \n",word,rho_ref);
 							return -1;
@@ -213,16 +253,17 @@ int read_input_file(char *name){
 					break;
 
 				case 7:
-					sscanf(line,"%f",&OVD);
+					sscanf(line,"%s %f",word,&OVD);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %f.\n",word,OVD);
 					ParameterSet[i]++;
 					break;
 
 				case 8: 
-					sscanf(line,"%f",&Mmin);
+					sscanf(line,"%s %f",word,&Mmin);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
@@ -231,7 +272,7 @@ int read_input_file(char *name){
 					break;
 
 				case 9:
-					sscanf(line,"%f",&LUNIT);
+					sscanf(line,"%s %f",word,&LUNIT);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
@@ -240,7 +281,7 @@ int read_input_file(char *name){
 					break;
 
 				case 10:
-					sscanf(line,"%f",&MUNIT);
+					sscanf(line,"%s %f",word,&MUNIT);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
@@ -249,7 +290,7 @@ int read_input_file(char *name){
 					break;
 
 				case 11:
-					sscanf(line,"%d",&SWP);
+					sscanf(line,"%s %d",word, &SWP);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
@@ -258,7 +299,7 @@ int read_input_file(char *name){
 					break;
 
 				case 12:
-					sscanf(line,"%d",&DGADGET);
+					sscanf(line,"%s %d",word,&DGADGET);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
@@ -267,11 +308,12 @@ int read_input_file(char *name){
 					break;
 
 				case 13:
-					sscanf(line,"%d",&LGADGET);
+					sscanf(line,"%s %d",word,&LGADGET);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					fprintf(stderr,"%s: %d.\n",word,LGADGET);
 					ParameterSet[i]++;
 					break;
 
@@ -283,7 +325,6 @@ int read_input_file(char *name){
 		}//if (no comment line)
 	}//while	
 	fclose(f);
-
 	if(NParametersSet!=NParam){
 		for (i=0;i<NParam;i++){
 			if (ParameterSet[i]==0)
@@ -309,12 +350,15 @@ int read_input_file(char *name){
 		return -1;
 	}
 
+	i=0;
         while(fgets(line,LINELENGTH,f)!=NULL){
                 if (line[0] != '#'){
 			fgets(line,LINELENGTH,f);
 			sscanf(line,"%f %f",&x,&y);
 			alpha[i]=x;
 			Malpha[i]=y;
+			fprintf(stderr,"%d ",i);
+			i++;
 		}
 	}
 	fclose(f);

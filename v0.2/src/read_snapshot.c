@@ -7,8 +7,8 @@
  *
  *=========================================================================*/
 
-#define _DEBUG
-#define _VERB
+#define DEBUG
+#define VERB
 
 #include <stddef.h>
 #include <stdio.h>

@@ -10,14 +10,6 @@
 #define MAXTRIALS (20)
 
 
-#define _VERB
-#define _DEBUG
-//#define _ULTRADEBUG
-#define _PERIODIC
-#define _ONLYBIG
-
-
-
 
 
 //long select_cell_rnd(long *, long *, long *); 
@@ -109,26 +101,23 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 
 
 
-#ifdef _VERB
-	fprintf(stderr,"#def _VERB\n");
+#ifdef VERB
+	fprintf(stderr,"#def VERB\n");
 #endif 
-#ifdef _DEBUG
-	fprintf(stderr,"#def _DEBUG \n");
+#ifdef DEBUG
+	fprintf(stderr,"#def DEBUG \n");
 #endif
-#ifdef _ULTRADEBUG
-	fprintf(stderr,"#def _ULTRADEBUG \n");
+#ifdef ULTRADEBUG
+	fprintf(stderr,"#def ULTRADEBUG \n");
 #endif
-#ifdef _PERIODIC
-	fprintf(stderr,"#def _PERIODIC\n");
-#endif
-#ifdef _ONLYBIG
-	fprintf(stderr,"#def _ONLYBIG\n");
+#ifdef ONLYBIG
+	fprintf(stderr,"#def ONLYBIG\n");
 #endif
 
 	Nmin = (long)ceil(HaloMass[NHalosTot-1]/mpart);
 
 	
-	#ifdef _VERB
+	#ifdef VERB
 	fprintf(stderr,"\nMassFunction computed globally with hmf. Particles and Halos placed in %ld^3 cells\n",NCells);
 	fprintf(stderr,"Exclusion done only with haloes.\n");
 	fprintf(stderr,"BOX = %f  lcell =%f   rho_ref = %e  invL %f\n",L,L/NCells,rho_ref,invL);
@@ -152,7 +141,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 
 
 
-#ifdef _VERB
+#ifdef VERB
 	fprintf(stderr,"Assigning particles to grid ...\n");
 #endif
 
@@ -172,12 +161,12 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 		}
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		NPartPerCell[lin_ijk]++;
-#ifdef _DEBUG
+#ifdef DEBUG
 		if(ilong<10 || ilong > NTotPart -10 || ilong==243666)
 			fprintf(stderr,"ipart=%ld  cell: %ld=[%ld,%ld,%ld] Parts in cell=%ld, Pos= [%f,%f,%f]\n",ilong,lin_ijk,i,j,k,NPartPerCell[lin_ijk],PartX[ilong],PartY[ilong],PartZ[ilong]);
 #endif
 	}
-#ifdef _DEBUG
+#ifdef DEBUG
 	fprintf(stderr,"... particles counted ...\n");
 	t2=time(NULL);
  	diff = difftime(t2,t1);
@@ -194,7 +183,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 		Nhalos = (long) (NPartPerCell[lin_ijk]/Nmin);
 		ListOfHalos[lin_ijk] = (long *) calloc(Nhalos,sizeof(long));
 		MassLeft[lin_ijk] = (double) NPartPerCell[lin_ijk]*mpart; 
-#ifdef _ULTRADEBUG
+#ifdef ULTRADEBUG
 		if (lin_ijk<10 || lin_ijk > (NCells*NCells*NCells) - 10){
 			fprintf(stderr,"Allocated %ld (longs) in ListOfPart(%ld=[%ld,%ld,%ld])\n",NPartPerCell[lin_ijk],lin_ijk,i,j,k);
 			fprintf(stderr,"Allocated %ld (longs) in ListOfHalos(%ld=[%ld,%ld,%ld])\n",Nhalos,lin_ijk,i,j,k);
@@ -204,7 +193,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 	}
 	}
 
-#ifdef _DEBUG
+#ifdef VERB
 	fprintf(stderr,"... memory allocated ...\n");
 	t3=time(NULL);
  	diff = difftime(t3,t2);
@@ -243,13 +232,13 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 //----------------------------------- Particles assigned to grid
 
 
-#ifdef _VERB
+#ifdef VERB
 	fprintf(stderr," ...done\n\n");
 	t4=time(NULL);
  	diff = difftime(t4,t3);
 	fprintf(stderr,"time of the actual assignment %f\n",diff);
 #endif
-#ifdef _DEBUG
+#ifdef DEBUG
 	fprintf(stderr," Mass Function\n");
 	for (ihalo=0;ihalo<15;ihalo++){
 		fprintf(stderr,"halo %ld: ",ihalo);
@@ -257,13 +246,13 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 	}
 #endif
 
-#ifdef _VERB
+#ifdef VERB
 	fprintf(stderr,"\nPlacing Halos...\n\n");
 #endif
 
 	for (ihalo=0;ihalo<NHalosTot;ihalo++){
 
-		#ifdef _DEBUG
+		#ifdef DEBUG
 		fprintf(stderr,"\n- Halo %ld ",ihalo);
 		#endif
 		
@@ -290,7 +279,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 			HaloR[ihalo]= R;
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
 			if (check==0){
-				#ifdef _DEBUG
+				#ifdef DEBUG
 				fprintf(stderr,"Refused part : %ld\n",ipart);
 				#endif
 				trials++;
@@ -317,7 +306,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 
 		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exp)-pow(Mcell/mpart,exp);
 
-		#ifdef _DEBUG
+		#ifdef DEBUG
 		fprintf(stderr,"\n assigned to cell %ld=[%ld,%ld,%ld]\n Before: Mcell=%e, TotProb=%e. ",lin_ijk,i,j,k,Mcell,TotProb);
 		#endif
 
@@ -327,12 +316,12 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
                 }
                 TotProb+=ProbDiff;
 
-		#ifdef _DEBUG
+		#ifdef DEBUG
 		fprintf(stderr," After: Mcell=%e, TotProb=%e.   ProbDiff=%e, Mhalo=%e\n",MassLeft[lin_ijk],TotProb,ProbDiff,Mhalo);
 		#endif
 	
 
-		#ifdef _DEBUG
+		#ifdef DEBUG
 		fprintf(stderr,"halo %ld assigned to particle %ld at [%f,%f,%f]. R= %f, M= %e\n",ihalo,ipart,HaloX[ihalo],HaloY[ihalo],HaloZ[ihalo],R,Mhalo);
 		#endif
 
@@ -340,7 +329,7 @@ fprintf(stdout,"Hi! This is place_halos.c v9.2\n");
 		NHalosPerCell[lin_ijk]++;
 	}
 
-#ifdef _VERB
+#ifdef VERB
 	t5=time(NULL);
  	diff = difftime(t5,t4);
 	fprintf(stderr,"time placing %f\n",diff);
@@ -431,7 +420,7 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
         long jpart,jj;
         double X=PartX[ipart],Y=PartY[ipart],Z=PartZ[ipart],R=PartR[ipart];
 
-#ifdef _PERIODIC
+//#ifdef _PERIODIC
                 if (i==-1){
                         i = NCells -1;
                         X = X + Lbox;
@@ -457,30 +446,30 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
                         k = 0;
                         Z = Z - Lbox;
                 }
-#endif
+//#endif
   if (i>=0 && i<NCells && j>=0 && j<NCells && k>=0 && k<NCells){
-#ifdef _ULTRADEBUG
+#ifdef ULTRADEBUG
        fprintf(stderr,"Checking cell [%ld,%ld,%ld] for halo %ld",i,j,k,ipart);
 #endif
         long lin_ijk = k+j*NCells+i*NCells*NCells;
-#ifdef _ULTRADEBUG
+#ifdef ULTRADEBUG
 	fprintf(stderr,"= %ld.",lin_ijk);
 #endif
 	for (jj=0; jj<NHalosPerCell[lin_ijk]; jj++){
-#ifdef _ULTRADEBUG
+#ifdef ULTRADEBUG
 		fprintf(stderr,"jj=%ld/%ld ",jj,NHalosPerCell[lin_ijk]);
 #endif
 		jpart=ListOfHalos[lin_ijk][jj];
-#ifdef _ULTRADEBUG
+#ifdef ULTRADEBUG
 		fprintf(stderr,"jpart=%ld ",jpart);
 #endif
-		#ifdef _ONLYBIG
+		#ifdef ONLYBIG
 		if ((square(X-PartX[jpart])+square(Y-PartY[jpart])+square(Z-PartZ[jpart]))<square(PartR[jpart])) 
 		#else
 		if ((square(X-PartX[jpart])+square(Y-PartY[jpart])+square(Z-PartZ[jpart]))<square(R+PartR[jpart])) 
 		#endif
 		{
-#ifdef _DEBUG
+#ifdef DEBUG
                         fprintf(stderr,"\nChecking cell [%ld,%ld,%ld] for halo %ld",i,j,k,ipart);
                         fprintf(stderr," lin_ijk= %ld.",lin_ijk);
                         fprintf(stderr,"jj=%ld/%ld ",jj,NHalosPerCell[lin_ijk]);

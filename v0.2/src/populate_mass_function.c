@@ -4,7 +4,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define linelength 1024
+#define LINELENGTH 1024
 
 
 #include "populate_mass_function.h"
@@ -86,7 +86,7 @@ long populate_mass_function(char *filename, double Mmin, double Lbox, float **ha
 int read_mass_function(char *fname, double **x, double **y, long *N, double xmin, long *Nred){
 	long Nlines=0, N_gtmin=0;
 	FILE *f;
-	char line[linelength];
+	char line[LINELENGTH];
 	double X,Y;
 
  	if ((f = fopen(fname, "r"))==NULL) {
@@ -94,7 +94,7 @@ int read_mass_function(char *fname, double **x, double **y, long *N, double xmin
                 fprintf(stderr,"Error while reading the file %s\n",fname);
                 return -1;
         }
-	while(fgets(line,linelength,f)!=NULL) {
+	while(fgets(line,LINELENGTH,f)!=NULL) {
                 if (line[0] != '#') {
 			Nlines++;	
 		}	
@@ -106,7 +106,7 @@ int read_mass_function(char *fname, double **x, double **y, long *N, double xmin
 
 	Nlines=0;
 	f = fopen (fname,"r");
-	while(fgets(line,linelength,f)!=NULL) {
+	while(fgets(line,LINELENGTH,f)!=NULL) {
                 if (line[0] != '#') {
 			sscanf(line,"%lf %lf",&X,&Y);	
 			(*x)[Nlines]=X;

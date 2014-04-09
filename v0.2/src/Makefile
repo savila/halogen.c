@@ -2,7 +2,12 @@ CC		=	gcc
 #OPT		=	-O2 -fopenmp 
 OPT		=	-O2 -Wall -fopenmp 
 MLIB		=	-lm
-DEFS		=	
+
+DEFS		+=	-DVERB
+#DEFS		+=	-DDEBUG
+#DEFS		+=	-DULTRADEBUG
+DEFS		+=	-DONLYBIG
+	
 
 halogen:	halogen.c\
 		read_snapshot.o\
