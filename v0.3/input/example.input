@@ -1,0 +1,40 @@
+#******** HALOGEN input file *******#
+
+
+######### GENERAL INPUTS ########
+
+#Full path to the (2LPT) Snapshot
+Snapshot ../../../GRID/Simulations/L1000_N512_z0.0/snapshot_2LPT
+	
+#Gadget format (1 or 2) of Snapshot
+GadgetFormat 1
+
+#Full path to the tabulated cumulative density function n(>M). Format: M[M_sun/h] n[(h/Mpc)^3]
+MassFunctionFile	input/ngtm_2.txt
+
+#Full Path to the output
+OutputFile	output/L1000_512_z0_alpha2.0_N64
+
+#Number of Cells per side of the grid used
+NCellsLin	64
+
+#Full path to the tabulated alpha(Mass) relation. Format: alpha M[M_sun/h]
+alphaFile	input/alpha_2.0.txt
+
+#Reference densisty: choose "crit" for rho_critical or "matter" for rho_matter
+rho_ref		crit
+
+#Density at which the edge of the halo is defined in units of rho_ref
+Overdensity	200
+
+#Minimum halo mass in units of the simulation DM particle
+MinNumPartPerHalo	20.
+
+
+
+######### Specific Gadget formats ########
+GadL_Unit 	1.0
+GadM_Unit	1.0e10
+GadSwap		0
+GadDouble	0
+GadLong		0

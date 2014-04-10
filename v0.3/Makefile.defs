@@ -1,0 +1,4 @@
+#DEFS            +=      -DVERB
+#DEFS            +=      -DDEBUG
+#DEFS           +=      -DULTRADEBUG
+DEFS            +=      -DONLYBIG
