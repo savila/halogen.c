@@ -1,4 +1,7 @@
-#DEFS            +=      -DVERB
-#DEFS            +=      -DDEBUG
+DEFS            +=      -DVERB
+DEFS            +=      -DDEBUG
 #DEFS           +=      -DULTRADEBUG
-DEFS            +=      -DONLYBIG
+#DEFS            +=      -DONLYBIG
+#DEFS            +=      -DNO_EXCLUSION
+#DEFS		+=	-DNO_MASS_CONSERVATION
+#DEFS		+=	-DRANKED

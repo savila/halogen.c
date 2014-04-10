@@ -14,7 +14,7 @@
 
 //long select_cell_rnd(long *, long *, long *); 
 long select_cell(); 
-long select_heaviest_cell(long *, long *, long *, double *, int, double); 
+long select_heaviest_cell(long *, long *, long *); 
 long select_part(long );
 int check_HaloR_in_mesh(long,float *, float *, float * , float *,long,long,long);
 int check_HaloR_in_cell(long ,float *, float *, float * , float *,long ,long,long);
@@ -125,7 +125,7 @@ fprintf(stderr,"\tThis is place_halos.c v9.2\n");
 	fprintf(stderr,"\tX[1] = %f Y[1] = %f Z[1] = %f\n",PartX[1],PartY[1],PartZ[1]);
 	fprintf(stderr,"\tM[0] = %e \n",HaloMass[0]);
 	fprintf(stderr,"\tM[1] = %e \n",HaloMass[1]);
-	fprintf(stderr,"\tM[%d] = %e \n",NHalosTot-1,HaloMass[NHalosTot-1]);
+	fprintf(stderr,"\tM[%ld] = %e \n",NHalosTot-1,HaloMass[NHalosTot-1]);
 	fprintf(stderr,"\n\tMinimmum mass= %e. Minimum part per halo = %ld. mpart %e\n",HaloMass[NHalosTot-1],Nmin,mpart);
 	#endif	
 
@@ -261,18 +261,17 @@ fprintf(stderr,"\tThis is place_halos.c v9.2\n");
 		#endif
 		
 		do {		
-				
+		  #ifndef RANKED				
 		  lin_ijk = select_cell();
-
-		  if(lin_ijk<0) {
-			fprintf(stderr,"\tMaximum Mass cell was %e\n",MassLeft[select_heaviest_cell(&i,&j,&k,MassLeft,NCells,HaloMass[ihalo])]);
-			break;
-		  }
-
+		 
 		  k=lin_ijk%(NCells);
 		  j=((lin_ijk-k)/NCells)%NCells;
 	  	  i=(lin_ijk-k-j*NCells)/(NCells*NCells);
-		
+		  #else
+		  lin_ijk=select_heaviest_cell(&i,&j,&k);		  
+		  #endif
+
+
 		  trials=0;
 		  do {
 			ipart = select_part(lin_ijk);		
@@ -281,15 +280,23 @@ fprintf(stderr,"\tThis is place_halos.c v9.2\n");
                		HaloZ[ihalo] = PartZ[ipart];
 			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]= R;
+			#ifdef NO_EXCLUSION
+			check = 1;
+			#else
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
+			#endif
 			if (check==0){
 				#ifdef DEBUG
 				fprintf(stderr,"Refused part : %ld\n",ipart);
 				#endif
 				trials++;
 			}
-			if (trials == MAXTRIALS)
+			if (trials == MAXTRIALS){
+				#ifdef DEBUG
+				fprintf(stderr,"MAXTRIALS=%d reached, selecting another cell\n",MAXTRIALS);
+				#endif
 				break;
+			}
 		  } while (check==0);//PART excluded
 	        } while(check==0); //if reached MAXTRIALS, select another cell
 		
@@ -305,11 +312,13 @@ fprintf(stderr,"\tThis is place_halos.c v9.2\n");
         		fprintf(stderr,"\n\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
 		#endif
 		}
-
+		
+		#ifndef NO_MASS_CONSERVATION 
                 if (Mcell>HaloMass[ihalo])
 			MassLeft[lin_ijk] -= Mhalo; 
                 else
                         MassLeft[lin_ijk] = 0.;
+		#endif
 
 		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exp)-pow(Mcell/mpart,exp);
 
@@ -362,7 +371,6 @@ void ComputeCumulative(double alpha){
 
 
 
-
 long select_part(long ijk){
 	long i_rnd,ipart;
 
@@ -372,15 +380,15 @@ long select_part(long ijk){
 	return ipart;
 }
 
-long select_heaviest_cell(long *x, long *y, long *z, double *MassArray, int N, double M) {
+long select_heaviest_cell(long *x, long *y, long *z) {
 	long i,j,k,lin_ijk, out_ijk=-1;
 	float max=0.0;	
-	for (i=0;i<N;i++){
-        for (j=0;j<N;j++){
-        for (k=0;k<N;k++){
-		lin_ijk = k+j*N+i*N*N;
-		if (max<(MassArray)[lin_ijk]){
-			max=(MassArray)[lin_ijk];
+	for (i=0;i<NCells;i++){
+        for (j=0;j<NCells;j++){
+        for (k=0;k<NCells;k++){
+		lin_ijk = k+j*NCells+i*NCells*NCells;
+		if (max<MassLeft[lin_ijk]){
+			max=MassLeft[lin_ijk];
 			*x=i;
 			*y=j;
 			*z=k;

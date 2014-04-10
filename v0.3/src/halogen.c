@@ -91,6 +91,15 @@ int main(int argc, char **argv){
 #ifdef ONLYBIG
 	fprintf(stderr,"#def ONLYBIG\n");
 #endif
+#ifdef NO_EXCLUSION
+	fprintf(stderr,"#def NO_EXCLUSION\n");
+#endif
+#ifdef NO_MASS_CONSERVATION
+	fprintf(stderr,"#def NO_MASS_CONSERVATION\n");
+#endif
+#ifdef RANKED
+	fprintf(stderr,"#def RANKED\n");
+#endif
 
 
 	fprintf(stderr,"\nReading input file...\n");
