@@ -218,7 +218,6 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	fprintf(stderr,"\t...particles assigned, now haloes...\n");
 #endif
 	for (ihalo=0;ihalo<Nstart;ihalo++){
-		fprintf(stderr,"ihalo ");
 		i = (long) (invL * HaloX[ihalo]*NCells);
 		j = (long) (invL * HaloY[ihalo]*NCells);
 		k = (long) (invL * HaloZ[ihalo]*NCells);
@@ -228,7 +227,6 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		ListOfHalos[lin_ijk][NHalosPerCell[lin_ijk]] = ihalo;
 		NHalosPerCell[lin_ijk]++;
-		fprintf(stderr,"%ld \t",ihalo);
 	}
 
 #ifdef DEBUG
