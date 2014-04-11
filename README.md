@@ -1,6 +1,6 @@
-==================
-README FOR HALOGEN
-==================
+=======
+HALOGEN
+=======
 
 HALOGEN is a C program for creating realistic synthetic dark matter halo catalogs 
 in a flash. 
@@ -23,8 +23,7 @@ in ``/usr/bin/``.
 
 Usage
 -----
-To run HALOGEN, type
-  halogen <input.file>
+To run HALOGEN, type ``halogen <input.file>``.
   
 An example input file is found in the input/ subdirectory of each version.
 
