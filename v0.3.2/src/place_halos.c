@@ -202,7 +202,7 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
  	diff = difftime(t3,t2);
 	fprintf(stderr,"\ttime allocating %f\n",diff);
 #endif
-
+	#pragma omp parallel for private(ilong,i,k,j,lin_ijk) shared(NTotPart,invL,NCells,ListOfPart,count,PartZ,PartX,PartY) default(none)
 	for (ilong=0;ilong<NTotPart;ilong++) {
 		i = (long) (invL * PartX[ilong]*NCells);
 		j = (long) (invL * PartY[ilong]*NCells);
