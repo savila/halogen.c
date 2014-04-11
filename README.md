@@ -50,7 +50,7 @@ using the code.
 
 Authors
 -------
-Santiago Avila Perez: santiagoavilaperez@gmail.com
+Santiago Avila Perez: santiago.avila@uam.com
 Steven Murray: steven.murray@uwa.edu.au 
 
  
