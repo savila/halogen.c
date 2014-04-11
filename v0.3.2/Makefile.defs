@@ -4,4 +4,4 @@ DEFS            +=      -DDEBUG
 #DEFS            +=      -DONLYBIG
 #DEFS            +=      -DNO_EXCLUSION
 #DEFS		+=	-DNO_MASS_CONSERVATION
-DEFS		+=	-DRANKED
+#DEFS		+=	-DRANKED
