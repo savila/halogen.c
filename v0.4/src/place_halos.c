@@ -101,7 +101,7 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	fprintf(stderr,"\tUsing OMP with %d threads\n",omp_get_max_threads());
 
         //Initiallise random numbers
-	#ifdef VERB
+/*	#ifdef VERB
         fprintf(stderr,"\tinput seed: %ld.    time0: %ld. Used: ",seed,t0);
 	#endif
 
@@ -117,7 +117,7 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
         	fprintf(stderr,"%ld \n",t0);
 		#endif
 	}
-
+*/
 	mpart = (double) mp;
 
 	Nmin = (long)ceil(HaloMass[Nend-1]/mpart);
@@ -309,7 +309,7 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 			#else
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
 			#endif
-			if (check==0){
+			if (check==1){
 				#ifdef DEBUG
 				fprintf(stderr,"Refused part : %ld\n",ipart);
 				#endif
@@ -321,8 +321,8 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 				#endif
 				break;
 			}
-		  } while (check==0);//PART excluded
-	        } while(check==0); //if reached MAXTRIALS, select another cell
+		  } while (check==1);//PART excluded
+	        } while(check==1); //if reached MAXTRIALS, select another cell
 		
                 Mcell=MassLeft[lin_ijk];
 		Mhalo= HaloMass[ihalo];
@@ -519,14 +519,14 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
                         fprintf(stderr,"jpart=%ld ",jpart);
                         fprintf(stderr,"refused!\n");
 #endif
-			return 0;
+			return 1;
 		}
 	}
-	return 1;
+	return 0;
   }
   else {
 	fprintf(stderr,"WARNING: Computing distances outside the box\n");
-	return 1;
+	return 0;
   }
 }
 
@@ -539,11 +539,11 @@ int check_HaloR_in_mesh(long ihalo,float *X, float *Y, float *Z , float *R,long 
 	for (m=j-1;m<=j+1;m++){
 	for (n=k-1;n<=k+1;n++){
 		if (check_HaloR_in_cell(ihalo,X,Y,Z,R,l,m,n)==0)
-			return 0;
+			return 1;
 
 	}
 	}
 	}
 
-	return 1;
+	return 0;
 }

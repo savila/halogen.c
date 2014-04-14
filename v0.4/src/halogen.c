@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include "read_snapshot.h"
 #include "populate_mass_function.h"
@@ -18,11 +19,12 @@
 
 #define rho_crit (27.755e10)
 #define LINELENGTH 256
-#define NParam 14
+#define NParam 15
 
-char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile","OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","MinNumPartPerHalo","GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong"};
+char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile","OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","MinNumPartPerHalo","GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong","Seed"};
 int ParameterSet[NParam];
 int NParametersSet = 0;
+long seed;
 
 char Snapshot[LINELENGTH];
 char OutputFile[LINELENGTH],MassFunctionFile[LINELENGTH], alphaFile[LINELENGTH];
@@ -123,10 +125,15 @@ int main(int argc, char **argv){
 	fprintf(stderr,"\t      ...\n");
 	fprintf(stderr,"\tx[%ld]= %f, y[%ld]= %f, z[%ld]= %f\n\n",Npart-1,x[Npart-1],Npart-1,y[Npart-1],Npart-1,z[Npart-1]);
 	#endif
+	
+	if (seed<0){
+		seed = time(NULL);
+		fprintf(stderr,"Seed used: %ld\n",seed);
+	}
 
 	//Generate the halo masses from the mass function
 	fprintf(stderr,"Generating Halo Masses...\n");
-	Nhalos = populate_mass_function(MassFunctionFile,Mmin*mpart,Lbox,&HaloMass);
+	Nhalos = populate_mass_function(MassFunctionFile,Mmin*mpart,Lbox,&HaloMass,seed);
 	if (Nhalos<0)
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 	fprintf(stderr,"...Halo Masses Generated\n");
@@ -146,16 +153,12 @@ int main(int argc, char **argv){
 
 	//place the halos
 	fprintf(stderr,"Placing halos down...\n");
-	/*MassLeft = (double *) calloc(Nlin*Nlin*Nlin,sizeof(double));
-  	int i;
-	for (i=0;i<10;i++){
-		if (place_halos_byparts(((Nhalos*i)/10),((Nhalos*(i+1))/10), HaloMass, Nlin, Npart, x, y, z, Lbox, rho,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz,hR,MassLeft)==0)
-			fprintf(stderr,"\n...Halos %ld<i<%ld placed\n",((Nhalos*i)/10),((Nhalos*(i+1))/10));
-		else
-			fprintf(stderr,"error in placing the halos\n");
+	if (place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, Lbox, rho,seed,mpart, alpha, Malpha, Nalpha, hx, hy, hz, hR)==0)
+		fprintf(stderr,"...halos placed correctly\n");
+	else {
+		fprintf(stderr,"Problem placing halos\n");
+		return -1;
 	}
-	*/
-	place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, Lbox, rho,-1,mpart, alpha, Malpha, Nalpha, hx, hy, hz, hR);
 
 	//writting output	
 	fprintf(stderr,"Writing Halo catalogue...\n");
@@ -373,7 +376,17 @@ int read_input_file(char *name){
 					#endif
 					ParameterSet[i]++;
 					break;
-
+				case 14:
+					sscanf(line,"%s %ld",word,&seed);
+					if (ParameterSet[i]>0)
+						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
+					else
+						NParametersSet++;
+					#ifdef VERB
+					fprintf(stderr,"\t%s: %ld.\n",word,seed);
+					#endif
+					ParameterSet[i]++;
+					break;
 				default:
 					fprintf(stderr,"WARNING: Unknown parameter %s\n",word);
 					break;
