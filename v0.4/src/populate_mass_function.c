@@ -4,10 +4,15 @@
 #include <time.h>
 #include <omp.h>
 
+#include "populate_mass_function.h"
+
 #define LINELENGTH 1024
 
 
-#include "populate_mass_function.h"
+/*=============================================================================
+ *                             PROTOTYPES
+ *=============================================================================*/
+
 
 void get_cubic_splines(double *, double *, int , double *);
 double spline_inter(double *, double *, int , double *, double );
@@ -16,6 +21,13 @@ int read_mass_function(char *, double **, double **, long *,double,long *);
 static int compare_float(const void * , const void * );
 
 
+
+
+/*=============================================================================
+ *                              populate_mass_funtcion()
+ *=============================================================================*/
+//Reads the cumulative mass function file, and creates and array of halo_masses which populate that function.
+//The return value (if successful) is the number of haloes
 
 long populate_mass_function(char *filename, double Mmin, double Lbox, float **halo_masses,long seed){
 	fprintf(stderr,"\tpopulate_mass_function.c V4.0\n");		
@@ -30,7 +42,7 @@ long populate_mass_function(char *filename, double Mmin, double Lbox, float **ha
 		fprintf(stderr,"ERROR: could not read %s\n",filename);
 		return -1;	
 	}
-	Nshort+=2; //avoid border effects
+	Nshort+=2; //Add 2 points to avoid border effects
 	fprintf(stderr,"\t... read\n");		
 	srand(seed);
 	#ifdef VERB
@@ -65,7 +77,7 @@ long populate_mass_function(char *filename, double Mmin, double Lbox, float **ha
 
 
 
-	//Generate masses (parallelisable)
+	//Generate masses
 	fprintf(stderr,"\tGenerating halo masses...\n");	
 	#pragma omp parallel for private(i,d_rand) shared(dens_max,halo_masses,Nhalos,dens_inv_arr,mass_inv_arr,Nshort,y2) default(none) 
 	for (i=0;i<Nhalos;i++){
@@ -81,6 +93,10 @@ long populate_mass_function(char *filename, double Mmin, double Lbox, float **ha
 	return Nhalos;
 }
 
+
+/*=============================================================================
+ *                                read_mass_function()
+ *=============================================================================*/
 
 int read_mass_function(char *fname, double **x, double **y, long *N, double xmin, long *Nred){
 	long Nlines=0, N_gtmin=0;
@@ -122,6 +138,10 @@ int read_mass_function(char *fname, double **x, double **y, long *N, double xmin
 	return 1;
 }
 
+/*=============================================================================
+ *                              SPLINES functions
+ *=============================================================================*/
+// get_cubic_splines(): computes the  coefficients (y2) of the cubic splines for a function y(x) sampled with N points
 
 
 void get_cubic_splines(double *x, double *y, int N, double *y2){
@@ -155,7 +175,8 @@ void get_cubic_splines(double *x, double *y, int N, double *y2){
 }
 
 
-
+// spline_inter(): given a function y(x) sampled with N points and the splines coefficients (y2),
+// it returns the yi value at an xi point 
 double spline_inter(double *x, double *y, int N, double *y2, double xi){
 
         double h,b,a;
@@ -181,6 +202,12 @@ static int compare_double(const void * a, const void * b)
   else if (*(double*)a < *(double*)b) return 1;
   else return 0;  
 }*/
+
+/*=============================================================================
+ *                              COMPARE
+ *=============================================================================*/
+//compares 2 float variables in the way required by qsort()
+
 static int compare_float(const void * a, const void * b)
 {
   if (*(float*)a > *(float*)b) return -1;

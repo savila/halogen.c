@@ -11,6 +11,10 @@
 
 
 
+/*=============================================================================
+ *                             PROTOTYPES
+ *=============================================================================*/
+
 
 //long select_cell_rnd(long *, long *, long *); 
 long select_cell(); 
@@ -29,27 +33,41 @@ long NCells,NTotCells;
 double mpart;
 
 
+/*=============================================================================
+ *                             simple functions
+ *=============================================================================*/
 
-
+//     square()
 float square(float a){
 	return a*a;
 }
 
-
+// R_from_mass():
+// takes a halo mass and transforms it to a halo radius, for a given definition in terms of density at the edge (rho, in physical units).
 float R_from_mass(float Mass,float rho) {
 	return  (float) pow((3./(4.*rho*M_PI)*Mass),(1./3.));
 }
 
+//chec_limit(): check that i is between 0 and N-1
 long check_limit(long i, long N){
 	if (i==N)
-		return 0;
+		return 0; //Apply boundary conditions
 	if (i<0 || i>N){
-		fprintf(stderr,"particle assigned to cell %ld\nExiting...",i);
+		fprintf(stderr,"particle assigned to unexisting cell %ld\nExiting...",i);
 		exit(0);
 	}
 	return i;
-		
 }
+
+
+/*=============================================================================
+ *                             place_halos()
+ *=============================================================================*/
+
+//place_halos():
+//
+//Takes a list of halo masses (Nhalos, HaloMass), a list of particles (NTotPart,PartX,PartY,PartZ), some simulation parameters (L, mp), and user-defined parameters (Nlin,rho_ref,alpha,Malpha,Nalpha,seed)
+//and returns a list of halo positions and radii (HaloX,HaloY,HaloZ,HaloR)
 
 int place_halos(long Nhalos, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloR){
 	double *RemainingMass;
@@ -58,9 +76,12 @@ int place_halos(long Nhalos, float *HaloMass, long Nlin, long NTotPart, float *P
 
 }
 
+
+//place_halos_byparts():
+//for fitting analysis, it can be useful to only place some interval [Nstart,Nend] of the halo list
 int place_halos_byparts(long Nstart, long Nend, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloR, double *RemainingMass){
 
-fprintf(stderr,"\tThis is place_halos.c v10.2\n");
+fprintf(stderr,"\tThis is place_halos.c v10+\n");
 
 
 //Initiallising -------------------------------------------------
@@ -73,7 +94,7 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	time_t t0;
 
 	#ifdef VERB
-	time_t t1,t2,t3,t4,t5;
+	time_t t1,t2,t3,t4,t4_5,t5;
 	float diff;
 	#endif
 
@@ -88,11 +109,21 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 
 
 	//Allocate memory for the arrays 
-	NPartPerCell = (long *) calloc(NCells*NCells*NCells,sizeof(long));
-	NHalosPerCell = (long *) calloc(NCells*NCells*NCells,sizeof(long));
-	count = (long *) calloc(NCells*NCells*NCells,sizeof(long));
-
-
+	NPartPerCell = (long *) calloc(NTotCells,sizeof(long));
+  	if( NPartPerCell == NULL) {
+    		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for NPartPerCell[]\nABORTING",NTotCells);
+    		exit(-1);
+	}
+	NHalosPerCell = (long *) calloc(NTotCells,sizeof(long));
+  	if(NHalosPerCell == NULL) {
+    		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for NHalosPerCell[]\nABORTING",NTotCells);
+    		exit(-1);
+	}
+	count = (long *) calloc(NTotCells,sizeof(long));
+  	if(count == NULL) {
+    		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for NTotCells[]\nABORTING",NTotCells);
+    		exit(-1);
+	}
 	CumulativeProb = (double *) calloc(NTotCells, sizeof(double));
   	if(CumulativeProb == NULL) {
     		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for CumulativeProb[]\nABORTING",NTotCells);
@@ -100,26 +131,24 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	}
 	fprintf(stderr,"\tUsing OMP with %d threads\n",omp_get_max_threads());
 
+
         //Initiallise random numbers
-/*	#ifdef VERB
-        fprintf(stderr,"\tinput seed: %ld.    time0: %ld. Used: ",seed,t0);
+	#ifdef VERB
+        fprintf(stderr,"\tinput seed: %ld.    time0: %ld.",seed,t0);
 	#endif
 
         if (seed>=0){
                 srand(seed);
 		#ifdef VERB
-        	fprintf(stderr,"%ld \n",seed);
+        	fprintf(stderr,"Used: %ld \n",seed);
 		#endif
 	}
         else {
                 srand(t0);
-		#ifdef VERB
-        	fprintf(stderr,"%ld \n",t0);
-		#endif
+        	fprintf(stderr,"Seed Used: %ld \n",t0);
 	}
-*/
-	mpart = (double) mp;
 
+	mpart = (double) mp;
 	Nmin = (long)ceil(HaloMass[Nend-1]/mpart);
 
 	
@@ -137,7 +166,11 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	fprintf(stderr,"\tM[%ld] = %e \n",Nend-1,HaloMass[Nend-1]);
 	fprintf(stderr,"\n\tMinimmum mass= %e. Minimum part per halo = %ld. mpart %e\n",HaloMass[Nend-1],Nmin,mpart);
 	#endif	
-
+	
+	if (L/NCells<R_from_mass(HaloMass[0],rho_ref)){
+		fprintf(stderr,"ERROR: cell size is smaller than the radius of the biggest halo. Please, change the number of cells\n");
+		exit(0);
+	}
 	
 	#ifdef VERB
 	t1=time(NULL);
@@ -238,6 +271,27 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
         fprintf(stderr,"\tMass_cell[0]=%e",MassLeft[0]);
 #endif
 
+#ifdef VERB
+	fprintf(stderr,"\t ...done\n\n");
+	t4=time(NULL);
+ 	diff = difftime(t4,t3);
+	fprintf(stderr,"\ttime of the actual assignment %f\n",diff);
+	fprintf(stderr,"\tComputing probabilities...\n");
+#endif
+#ifdef DEBUG
+	fprintf(stderr,"\t Mass Function\n");
+	for (ihalo=0;ihalo<15;ihalo++){
+		fprintf(stderr,"\thalo %ld: ",ihalo);
+		fprintf(stderr,"M=%e\n",HaloMass[ihalo]);
+	}
+#endif
+//----------------------------------- Particles and haloes assigned to grid
+
+
+
+//Computing Cumulative Probability -----------------------------
+	
+	//find the right alpha
 	Mhalo = HaloMass[Nstart];
 	i_alpha = 0;
 	while(Mhalo<Malpha[i_alpha]) {
@@ -249,42 +303,48 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	}	
 	Mchange = Malpha[i_alpha];
 	exp = alpha[i_alpha];
+	//compute the probabiliy
 	ComputeCumulative(exp);
 #ifdef VERB
         fprintf(stderr,"\tNumber of alphas: %ld\n",Nalpha);
         fprintf(stderr,"\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
+
+	t4_5=time(NULL);
+ 	diff = difftime(t4_5,t4);
+	fprintf(stderr,"\tprobabilty computed in %f secods\n",diff);
 #endif
+// ----------------------------------------- Computed Probability
 
 
 
-//----------------------------------- Particles assigned to grid
 
-
-#ifdef VERB
-	fprintf(stderr,"\t ...done\n\n");
-	t4=time(NULL);
- 	diff = difftime(t4,t3);
-	fprintf(stderr,"\ttime of the actual assignment %f\n",diff);
-#endif
-#ifdef DEBUG
-	fprintf(stderr,"\t Mass Function\n");
-	for (ihalo=0;ihalo<15;ihalo++){
-		fprintf(stderr,"\thalo %ld: ",ihalo);
-		fprintf(stderr,"M=%e\n",HaloMass[ihalo]);
-	}
-#endif
-
+//Actually placing the haloes----------------------------------- 
 #ifdef VERB
 	fprintf(stderr,"\n\tPlacing Halos...\n\n");
 #endif
 
+	//Place one by one all the haloes (assumed to be ordered from the most massive to the least massive)
 	for (ihalo=Nstart;ihalo<Nend;ihalo++){
 
 		#ifdef DEBUG
 		fprintf(stderr,"\n\t- Halo %ld ",ihalo);
 		#endif
-		
-		do {		
+
+		//Check whether or not, a change of alpha is needed for this halo mass 		
+		Mhalo= HaloMass[ihalo];
+
+		while (Mhalo < Mchange){//if so search the right alpha, and recompute probabilities
+			i_alpha++;		
+			Mchange = Malpha[i_alpha];
+			exp = alpha[i_alpha];
+			ComputeCumulative(exp);
+		#ifdef VERB
+        		fprintf(stderr,"\n\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
+		#endif
+		}
+
+		do {	
+		  //First, choose a cell	
 		  #ifndef RANKED				
 		  lin_ijk = select_cell();
 		 
@@ -295,8 +355,10 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 		  lin_ijk=select_heaviest_cell(&i,&j,&k);		  
 		  #endif
 
-
 		  trials=0;
+
+
+		  //Second, choose a particle in that cell
 		  do {
 			ipart = select_part(lin_ijk);		
                		HaloX[ihalo] = PartX[ipart];
@@ -305,8 +367,9 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]= R;
 			#ifdef NO_EXCLUSION
-			check = 1;
+			check = 0;
 			#else
+			//Third, check that is not overlapping a previous halo
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
 			#endif
 			if (check==1){
@@ -316,26 +379,20 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 				trials++;
 			}
 			if (trials == MAXTRIALS){
+				//in order to avoid infinite loop, we will exit this loop, after MAXTRIALS trials
 				#ifdef DEBUG
 				fprintf(stderr,"MAXTRIALS=%d reached, selecting another cell\n",MAXTRIALS);
 				#endif
 				break;
 			}
-		  } while (check==1);//PART excluded
-	        } while(check==1); //if reached MAXTRIALS, select another cell
-		
-                Mcell=MassLeft[lin_ijk];
-		Mhalo= HaloMass[ihalo];
+		  } while (check==1);//If the particle was excluded, try another one in the same cell
 
-		while (Mhalo < Mchange){
-			i_alpha++;		
-			Mchange = Malpha[i_alpha];
-			exp = alpha[i_alpha];
-			ComputeCumulative(exp);
-		#ifdef VERB
-        		fprintf(stderr,"\n\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
-		#endif
-		}
+	        } while(check==1); //if reached MAXTRIALS, select another cell
+		//Particle chosen!
+		
+		//mass in cell before assignment
+                Mcell=MassLeft[lin_ijk];
+
 		
 		#ifndef NO_MASS_CONSERVATION 
                 if (Mcell>HaloMass[ihalo])
@@ -344,12 +401,14 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
                         MassLeft[lin_ijk] = 0.;
 		#endif
 
+
 		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exp)-pow(Mcell/mpart,exp);
 
 		#ifdef DEBUG
 		fprintf(stderr,"\n \tassigned to cell %ld=[%ld,%ld,%ld]\n\t Before: Mcell=%e, TotProb=%e. ",lin_ijk,i,j,k,Mcell,TotProb);
 		#endif
-
+		
+		//Substract the Probability difference from the array (only affected those particles after the selected one)
                 #pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
                 for(icell=lin_ijk;icell<NTotCells;icell++){
                         CumulativeProb[icell]+=ProbDiff;
@@ -367,11 +426,12 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 
 		ListOfHalos[lin_ijk][NHalosPerCell[lin_ijk]]=ihalo;
 		NHalosPerCell[lin_ijk]++;
-	}
+	}//for(ihalo=Nstart:Nend)
+//----------------------------------- Haloes Placed
 
 #ifdef VERB
 	t5=time(NULL);
- 	diff = difftime(t5,t4);
+ 	diff = difftime(t5,t4_5);
 	fprintf(stderr,"\ttime placing %f\n",diff);
  	diff = difftime(t5,t0);
 	fprintf(stderr,"\ttotal time in .c %f\n",diff);
@@ -384,6 +444,10 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 
 
 
+
+//ComputeCumulative():
+//it takes the user-defined alpha (exponent) and (re-)computes the cumulative probability for the cells in the grid
+//from the masses in the cells (MassLeft)
 void ComputeCumulative(double alpha){
 	long i;
 	TotProb = 0.;
@@ -393,8 +457,8 @@ void ComputeCumulative(double alpha){
 	}
 }
 
-
-
+//select_part():
+//randomly selects a particle from a cell
 long select_part(long ijk){
 	long i_rnd,ipart;
 
@@ -404,6 +468,7 @@ long select_part(long ijk){
 	return ipart;
 }
 
+//select_heaviestcell()
 long select_heaviest_cell(long *x, long *y, long *z) {
 	long i,j,k,lin_ijk, out_ijk=-1;
 	float max=0.0;	
@@ -433,6 +498,8 @@ long select_cell_rnd(long *x, long *y, long *z) {
 }
 */
 
+//select_cell():
+//select one cell following the weight of the probabilities
 long select_cell() {
         long   i_low, i_up, i_mid;
         double d_rand;
@@ -453,8 +520,9 @@ long select_cell() {
 
 
 
-
-
+//check_HaloR_in_cell():
+//checks if there is any collision between the halo just been placed and any previous one, in the cell specified (i,j,k)
+//returns 1 if there is any collision, returns 0 for no collision
 int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, float *PartR, long i,long j, long k){
         long jpart,jj;
         double X=PartX[ipart],Y=PartY[ipart],Z=PartZ[ipart];
@@ -462,7 +530,7 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 	double R=PartR[ipart];
 	#endif 
 
-
+//The cell passed, might not exists, but be a virtual one (for periodic conditions): check, and correct:
 //#ifdef _PERIODIC
                 if (i==-1){
                         i = NCells -1;
@@ -490,6 +558,7 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
                         Z = Z - Lbox;
                 }
 //#endif
+
   if (i>=0 && i<NCells && j>=0 && j<NCells && k>=0 && k<NCells){
 #ifdef ULTRADEBUG
        fprintf(stderr,"Checking cell [%ld,%ld,%ld] for halo %ld",i,j,k,ipart);
@@ -498,6 +567,7 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 #ifdef ULTRADEBUG
 	fprintf(stderr,"= %ld.",lin_ijk);
 #endif
+	//loop over all the halos in that cell
 	for (jj=0; jj<NHalosPerCell[lin_ijk]; jj++){
 #ifdef ULTRADEBUG
 		fprintf(stderr,"jj=%ld/%ld ",jj,NHalosPerCell[lin_ijk]);
@@ -505,7 +575,8 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 		jpart=ListOfHalos[lin_ijk][jj];
 #ifdef ULTRADEBUG
 		fprintf(stderr,"jpart=%ld ",jpart);
-#endif
+#endif	
+		//Check for overlapping
 		#ifdef ONLYBIG
 		if ((square(X-PartX[jpart])+square(Y-PartY[jpart])+square(Z-PartZ[jpart]))<square(PartR[jpart])) 
 		#else
@@ -532,13 +603,15 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 
 
 
-
+//cheack_haloR_in_mesh():
+//checks if there is any collision between the halo just been placed and any previous one (going through all the neighbour cells)
+//returns 1 if there is any collision, returns 0 for no collision
 int check_HaloR_in_mesh(long ihalo,float *X, float *Y, float *Z , float *R,long i,long j,long k){
 	int l,m,n;
 	for (l=i-1;l<=i+1;l++){
 	for (m=j-1;m<=j+1;m++){
 	for (n=k-1;n<=k+1;n++){
-		if (check_HaloR_in_cell(ihalo,X,Y,Z,R,l,m,n)==0)
+		if (check_HaloR_in_cell(ihalo,X,Y,Z,R,l,m,n)==1)
 			return 1;
 
 	}

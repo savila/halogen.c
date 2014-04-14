@@ -138,7 +138,7 @@ int main(int argc, char **argv){
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 	fprintf(stderr,"...Halo Masses Generated\n");
 
-	//Allocalte memory for the halo XYZ and R
+	//Allocalte memory for the halo XYZR, and MassLeft vector
 	hx = (float *) calloc(Nhalos,sizeof(float));
 	hy = (float *) calloc(Nhalos,sizeof(float));
 	hz = (float *) calloc(Nhalos,sizeof(float));
@@ -146,6 +146,7 @@ int main(int argc, char **argv){
 	
 	MassLeft = (double *) calloc(Nlin*Nlin*Nlin,sizeof(double));
 	
+	//density at the boundary of a halo
 	if (strcmp(rho_ref,"crit")==0)
 		rho = OVD*rho_crit;
 	else 
@@ -222,7 +223,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;	
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %s.\n",word,Snapshot);
+					fprintf(stderr,"\t%s: %s\n",word,Snapshot);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -237,7 +238,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;	
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %d.\n",word,format);
+					fprintf(stderr,"\t%s: %d\n",word,format);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -249,7 +250,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %s.\n",word,MassFunctionFile);
+					fprintf(stderr,"\t%s: %s\n",word,MassFunctionFile);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -261,7 +262,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %s.\n",word,OutputFile);
+					fprintf(stderr,"\t%s: %s\n",word,OutputFile);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -273,7 +274,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %d.\n",word,Nlin);
+					fprintf(stderr,"\t%s: %d\n",word,Nlin);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -284,7 +285,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %s.\n",word,alphaFile);
+					fprintf(stderr,"\t%s: %s\n",word,alphaFile);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -296,7 +297,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %s.\n",word,rho_ref);
+					fprintf(stderr,"\t%s: %s\n",word,rho_ref);
 					#endif
 					if ((strcmp(rho_ref,"crit")!=0) && (strcmp(rho_ref,"matter")!=0)){
 							fprintf(stderr,"ERROR: Not valid option for %s: %s.\nPlease select \"crit\" or \"matter\". \n",word,rho_ref);
@@ -312,7 +313,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB 
-					fprintf(stderr,"\t%s: %f.\n",word,OVD);
+					fprintf(stderr,"\t%s: %f\n",word,OVD);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -344,6 +345,9 @@ int read_input_file(char *name){
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					#ifdef VERB 
+					fprintf(stderr,"\t%s: %f\n",word,MUNIT);
+					#endif
 					ParameterSet[i]++;
 					break;
 
@@ -353,6 +357,9 @@ int read_input_file(char *name){
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					#ifdef VERB 
+					fprintf(stderr,"\t%s: %d\n",word,SWP);
+					#endif
 					ParameterSet[i]++;
 					break;
 
@@ -362,6 +369,9 @@ int read_input_file(char *name){
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
+					#ifdef VERB 
+					fprintf(stderr,"\t%s: %d\n",word,DGADGET);
+					#endif
 					ParameterSet[i]++;
 					break;
 
@@ -372,7 +382,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB
-					fprintf(stderr,"\t%s: %d.\n",word,LGADGET);
+					fprintf(stderr,"\t%s: %d\n",word,LGADGET);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -383,7 +393,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB
-					fprintf(stderr,"\t%s: %ld.\n",word,seed);
+					fprintf(stderr,"\t%s: %ld\n",word,seed);
 					#endif
 					ParameterSet[i]++;
 					break;
