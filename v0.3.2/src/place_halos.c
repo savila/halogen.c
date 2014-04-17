@@ -372,8 +372,20 @@ fprintf(stderr,"\tThis is place_halos.c v10.2\n");
 	fprintf(stderr,"\ttotal time in .c %f\n",diff);
 	fprintf(stderr,"\n\tPlacement done!!!\n");
 #endif
-	free(count); free(NPartPerCell); free(ListOfPart);
+	free(count); free(NPartPerCell);
 	free(CumulativeProb);
+
+	for (i=0;i<NCells;i++){
+		for (j=0;j<NCells;j++){
+			for (k=0;k<NCells;k++){
+				lin_ijk = k+j*NCells+i*NCells*NCells;
+				free(ListOfPart[lin_ijk]);
+				free(ListOfHalos[lin_ijk]);
+			}
+		}
+	}
+	free(ListOfPart);
+	free(ListOfHalos);
 	return 0;
 }
 
