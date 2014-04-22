@@ -24,14 +24,20 @@ int check_HaloR_in_mesh(long,float *, float *, float * , float *,long,long,long)
 int check_HaloR_in_cell(long ,float *, float *, float * , float *,long ,long,long);
 void ComputeCumulative(double);
 
-
 long **ListOfPart, **ListOfHalos, *NPartPerCell, *NHalosPerCell;
 double *CumulativeProb; 
 double *MassLeft;
-float Lbox,TotProb;
+float Lbox,TotProb,lcell;
+double exponent;
 long NCells,NTotCells;
 double mpart;
 
+#ifdef MASS_OF_PARTS
+  int exclude_cell(long,float , float *, float *, float *, long ,long, long);
+  void exclude(long,float,float *,float *,float *,long ,long,long);
+  int *excluded;
+  long *Nexcluded;
+#endif
 
 /*=============================================================================
  *                             simple functions
@@ -89,7 +95,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	long *count,trials;
 	long ihalo,ilong, ipart, Nhalos,i_alpha;
 	double invL = 1./L, ProbDiff;
-	float Mcell,Mhalo,Mchange,exp; 
+	float Mcell,Mhalo,Mchange; 
 	float R;
 	time_t t0;
 
@@ -130,7 +136,19 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
     		exit(-1);
 	}
 	fprintf(stderr,"\tUsing OMP with %d threads\n",omp_get_max_threads());
-
+	
+	#ifdef MASS_OF_PARTS
+	Nexcluded = (long *) calloc(NTotCells,sizeof(long));
+  	if(Nexcluded == NULL) {
+    		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for Nexcluded[]\nABORTING",NTotCells);
+    		exit(-1);
+	}
+ 	excluded  = (int *) calloc(NTotPart, sizeof(long));
+  	if(excluded == NULL) {
+    		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for excluded[]\nABORTING",NTotPart);
+    		exit(-1);
+	}
+	#endif
 
         //Initiallise random numbers
 	#ifdef VERB
@@ -151,12 +169,14 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	mpart = (double) mp;
 	Nmin = (long)ceil(HaloMass[Nend-1]/mpart);
 
-	
+	lcell = L/NCells;
 	#ifdef VERB
 	fprintf(stderr,"\n\tParticles and Halos placed in %ld^3 cells\n",NCells);
 	fprintf(stderr,"\tBOX = %f  lcell =%f   rho_ref = %e  invL %f\n",L,L/NCells,rho_ref,invL);
 	fprintf(stderr,"\tNhalostart = %ld,Nhalosend = %ld,  NPart = %ld\n",Nstart, Nend, NTotPart);
 	#endif
+	
+
 	#ifdef DEBUG
 	fprintf(stderr,"\n\tRAND_MAX=%d\n",RAND_MAX);
 	fprintf(stderr,"\tX[0] = %f Y[0] = %f Z[0] = %f\n",PartX[0],PartY[0],PartZ[0]);
@@ -302,12 +322,12 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		}
 	}	
 	Mchange = Malpha[i_alpha];
-	exp = alpha[i_alpha];
+	exponent = alpha[i_alpha];
 	//compute the probabiliy
-	ComputeCumulative(exp);
+	ComputeCumulative(exponent);
 #ifdef VERB
         fprintf(stderr,"\tNumber of alphas: %ld\n",Nalpha);
-        fprintf(stderr,"\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
+        fprintf(stderr,"\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exponent,Mchange);
 
 	t4_5=time(NULL);
  	diff = difftime(t4_5,t4);
@@ -336,10 +356,10 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		while (Mhalo < Mchange){//if so search the right alpha, and recompute probabilities
 			i_alpha++;		
 			Mchange = Malpha[i_alpha];
-			exp = alpha[i_alpha];
-			ComputeCumulative(exp);
+			exponent = alpha[i_alpha];
+			ComputeCumulative(exponent);
 		#ifdef VERB
-        		fprintf(stderr,"\n\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exp,Mchange);
+        		fprintf(stderr,"\n\tUsing alpha_%ld=%f for M>%e\n",i_alpha,exponent,Mchange);
 		#endif
 		}
 
@@ -394,32 +414,37 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
                 Mcell=MassLeft[lin_ijk];
 
 		
-		#ifndef NO_MASS_CONSERVATION 
-                if (Mcell>HaloMass[ihalo])
+		#ifndef NO_MASS_CONSERVATION
+		  #ifndef MASS_OF_PARTS 
+                  if (Mcell>HaloMass[ihalo])
 			MassLeft[lin_ijk] -= Mhalo; 
-                else
+                  else
                         MassLeft[lin_ijk] = 0.;
+		  #else
+			exclude(ipart,R,PartX,PartY,PartZ,i,j,k);
+		  #endif
 		#endif
 
 
-		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exp)-pow(Mcell/mpart,exp);
+		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exponent)-pow(Mcell/mpart,exponent);
 
 		#ifdef DEBUG
 		fprintf(stderr,"\n \tassigned to cell %ld=[%ld,%ld,%ld]\n\t Before: Mcell=%e, TotProb=%e. ",lin_ijk,i,j,k,Mcell,TotProb);
 		#endif
 		
-		//Substract the Probability difference from the array (only affected those particles after the selected one)
-                #pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
-                for(icell=lin_ijk;icell<NTotCells;icell++){
+		#ifndef MASS_OF_PARTS
+		  //Substract the Probability difference from the array (only affected those cells after the selected one)
+                  #pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
+                  for(icell=lin_ijk;icell<NTotCells;icell++){
                         CumulativeProb[icell]+=ProbDiff;
-                }
-                TotProb+=ProbDiff;
+                  }
+                  TotProb+=ProbDiff;
+		#endif
 
 		#ifdef DEBUG
 		fprintf(stderr," After: Mcell=%e, TotProb=%e.   ProbDiff=%e, Mhalo=%e\n",MassLeft[lin_ijk],TotProb,ProbDiff,Mhalo);
 		#endif
 	
-
 		#ifdef DEBUG
 		fprintf(stderr,"\thalo %ld assigned to particle %ld at [%f,%f,%f]. R= %f, M= %e\n",ihalo,ipart,HaloX[ihalo],HaloY[ihalo],HaloZ[ihalo],R,Mhalo);
 		#endif
@@ -434,11 +459,27 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
  	diff = difftime(t5,t4_5);
 	fprintf(stderr,"\ttime placing %f\n",diff);
  	diff = difftime(t5,t0);
-	fprintf(stderr,"\ttotal time in .c %f\n",diff);
+	fprintf(stderr,"\ttotal time in place_halos.c %f\n",diff);
 	fprintf(stderr,"\n\tPlacement done!!!\n");
 #endif
-	free(count); free(NPartPerCell); free(ListOfPart);
-	free(CumulativeProb);
+
+        free(count); free(NPartPerCell);
+        free(CumulativeProb);
+
+        for (i=0;i<NCells;i++){
+                for (j=0;j<NCells;j++){
+                        for (k=0;k<NCells;k++){
+                                lin_ijk = k+j*NCells+i*NCells*NCells;
+                                free(ListOfPart[lin_ijk]);
+                                free(ListOfHalos[lin_ijk]);
+                        }
+                }
+        }
+        free(ListOfPart);
+        free(ListOfHalos);
+#ifdef MASS_OF_PARTS
+	free(excluded); free(Nexcluded);
+#endif
 	return 0;
 }
 
@@ -531,7 +572,7 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 	#endif 
 
 //The cell passed, might not exists, but be a virtual one (for periodic conditions): check, and correct:
-//#ifdef _PERIODIC
+//#ifdef PERIODIC
                 if (i==-1){
                         i = NCells -1;
                         X = X + Lbox;
@@ -620,3 +661,294 @@ int check_HaloR_in_mesh(long ihalo,float *X, float *Y, float *Z , float *R,long 
 
 	return 0;
 }
+
+#ifdef MASS_OF_PARTS
+int exclude_cell(long ipart,float R2, float *PartX, float *PartY, float *PartZ, long i,long j, long k){
+        long ilong, jpart;
+        float X=PartX[ipart],Y=PartY[ipart],Z=PartZ[ipart];
+
+#ifdef PERIODIC
+                if (i==-1){
+                        i = NCells -1;
+                        X = X + Lbox;
+                }
+                else if (i==NCells){
+                        i = 0;
+                        X = X - Lbox;
+                }
+
+                if (j==-1){
+                        j = NCells -1;
+                        Y = Y + Lbox;
+                }
+                else if (j==NCells){
+                        j = 0;
+                        Y = Y - Lbox;
+                }
+                if (k==-1){
+                        k = NCells -1;
+                        Z = Z + Lbox;
+                }
+                else if (k==NCells){
+                        k = 0;
+                        Z = Z - Lbox;
+                }
+#endif
+        long lin_ijk = k+j*NCells+i*NCells*NCells,Nbef,icell;
+	double ProbDiff;
+        if (MassLeft[lin_ijk]==0.){
+                #ifdef _DEBUG
+                fprintf(stderr,"No mass left in cell [%ld,%ld,%ld]  M=%f \n",i,j,k,MassLeft[lin_ijk]);
+                #endif
+                return 0;
+        }
+        Nbef = Nexcluded[lin_ijk];
+        #ifdef _DEBUG
+        fprintf(stderr,"Before: Nexcluded = %ld  . Excluding cell [%ld,%ld,%ld]...",Nexcluded[lin_ijk],i,j,k);
+        #endif
+        if (i>=0 && i<NCells && j>=0 && j<NCells && k>=0 && k<NCells){
+                for (ilong=0; ilong<NPartPerCell[lin_ijk];ilong++){
+                                jpart = ListOfPart[lin_ijk][ilong];
+                                if (excluded[jpart]==0){
+                                        if (R2>(square(PartX[jpart]-X)+square(PartY[jpart]-Y)+square(PartZ[jpart]-Z))){
+                                                excluded[jpart]=1;
+                                                Nexcluded[lin_ijk]++;
+                                        }
+
+
+                                }
+                }
+
+        }
+        #ifdef _DEBUG
+        fprintf(stderr,"After: Nexcluded = %ld  .  Out of %ld particles\n",Nexcluded[lin_ijk], NPartPerCell[lin_ijk]);
+        #endif
+	
+	MassLeft[lin_ijk]-=mpart*(Nexcluded[lin_ijk]-Nbef);
+	ProbDiff = pow(Nbef,exponent)-pow(Nexcluded[lin_ijk],exponent);	
+	#pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
+        for(icell=lin_ijk;icell<NTotCells;icell++){
+                 CumulativeProb[icell]+=ProbDiff;
+        }
+        TotProb+=ProbDiff;
+
+        return 0;
+}
+
+void exclude(long ipart,float R,float *PartX,float *PartY,float *PartZ,long i,long j,long k) {
+
+        float X = PartX[ipart];
+        float Y = PartY[ipart];
+        float Z = PartZ[ipart];
+        float R2 = R*R;
+        long faces=0, edges=0,vertices=0;
+
+                if (2.*R>lcell){
+                        fprintf(stderr,"WARNING: there are haloes with diameter D= 2R = %f greater than the size of the cell l = %f.\nPlease change the size of the cell\n",2.*R,lcell);
+                }
+
+                exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j,k);
+
+
+                //Boundaries: faces
+                if (X+R>lcell*(i+1)) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face X+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j,k);
+                }
+                if (X-R<lcell*i) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face X-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j,k);
+                }
+                if (Y+R>lcell*(j+1)) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face Y+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j+1,k);
+                }
+                if (Y-R<lcell*j) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face Y-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j-1,k);
+                }
+                if (Z+R>lcell*(k+1)) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j,k+1);
+                }
+                if (Z-R<lcell*k) {
+                        faces++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond face Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j,k-1);
+                }
+
+               //Boundaries: edges             
+                  //XY
+                  if (square(X-lcell*(i+1))+square(Y-lcell*(j+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"%f + %f < %f\n",square(X-lcell*(i+1)),square(Y-lcell*(j+1)),R2);
+                        fprintf(stderr,"Radius extends beyond edge X+Y+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j+1,k);
+                  }
+                  if (square(X-lcell*(i+1))+square(Y-lcell*(j))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X+Y-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j-1,k);
+                  }
+                  if (square(X-lcell*(i))+square(Y-lcell*(j+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X-Y+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j+1,k);
+                  }
+                  if (square(X-lcell*(i))+square(Y-lcell*(j))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X-Y-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j-1,k);
+                  }
+                  //YZ
+                  if (square(Z-lcell*(k+1))+square(Y-lcell*(j+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge Y+Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j+1,k+1);
+                  }
+                  if (square(Z-lcell*(k+1))+square(Y-lcell*(j))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge Z+Y-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j-1,k+1);
+                  }
+                  if (square(Z-lcell*(k))+square(Y-lcell*(j+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge Z-Y+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j+1,k-1);
+                  }
+                  if (square(Z-lcell*(k))+square(Y-lcell*(j))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge Z-Y-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i,j-1,k-1);
+                  }
+                  //XZ
+                  if (square(X-lcell*(i+1))+square(Z-lcell*(k+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X+Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j,k+1);
+                  }
+                  if (square(X-lcell*(i+1))+square(Z-lcell*(k))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X+Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j,k-1);
+                  }
+                  if (square(X-lcell*(i))+square(Z-lcell*(k+1))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X-Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j,k+1);
+                  }
+                  if (square(X-lcell*(i))+square(Z-lcell*(k))<R2){
+                        edges++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond edge X-Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j,k-1);
+                  }
+
+
+                //Boundaries: vertices
+                if (square(X-lcell*(i+1))+square(Y-lcell*(j+1))+square(Z-lcell*(k+1))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X+Y+Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j+1,k+1);
+                }
+                if (square(X-lcell*(i))+square(Y-lcell*(j+1))+square(Z-lcell*(k+1))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X-Y+Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j+1,k+1);
+                }
+                if (square(X-lcell*(i+1))+square(Y-lcell*(j))+square(Z-lcell*(k+1))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X+Y-Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j-1,k+1);
+                }
+                if (square(X-lcell*(i+1))+square(Y-lcell*(j+1))+square(Z-lcell*(k))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X+Y+Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j+1,k-1);
+                }
+                if (square(X-lcell*(i))+square(Y-lcell*(j))+square(Z-lcell*(k+1))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X-Y-Z+\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j-1,k+1);
+                }
+                if (square(X-lcell*(i))+square(Y-lcell*(j+1))+square(Z-lcell*(k))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X-Y+Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j+1,k-1);
+                }
+                if (square(X-lcell*(i+1))+square(Y-lcell*(j))+square(Z-lcell*(k))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X+Y-Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i+1,j-1,k-1);
+                }
+                if (square(X-lcell*(i))+square(Y-lcell*(j))+square(Z-lcell*(k))<R2){
+                        vertices++;
+                        #ifdef _DEBUG
+                        fprintf(stderr,"Radius extends beyond vertex X-Y-Z-\n");
+                        #endif
+                        exclude_cell(ipart,R2,PartX,PartY,PartZ,i-1,j-1,k-1);
+                }
+
+                if (edges==1 && faces<2) fprintf(stderr,"ERROR1: Something wrong with the boundaries of the cells\n");
+                if (edges>=2 && faces!=3) fprintf(stderr,"ERROR2: Something wrong with the boundaries of the cells: %ld edges   %ld faces \n",edges,faces);
+                if (vertices==1 && (faces!=3 || edges!=3) ) fprintf(stderr,"ERROR3: Something wrong with the boundaries of the cells:   %ld vertices   %ld edges   %ld faces \n",vertices,edges,faces);
+                if (faces>3)  fprintf(stderr,"ERROR4: Something wrong with the boundaries of the cells\n");
+                if (edges>3)  fprintf(stderr,"ERROR5: Something wrong with the boundaries of the cells %ld vertices   %ld edges   %ld faces \n",vertices,edges,faces);
+                if (vertices>1)  fprintf(stderr,"ERROR6: Something wrong with the boundaries of the cells\n");
+
+}
+#endif //MASS_OF_PARTS
