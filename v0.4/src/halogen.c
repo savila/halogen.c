@@ -63,7 +63,7 @@ int main(int argc, char **argv){
 
 	fprintf(stderr,"\n*******************************************************************\n");
 	fprintf(stderr,"**                                                               **\n");
-	fprintf(stderr,"**            =          HALOGEN V0.3.2         =                **\n");
+	fprintf(stderr,"**            =          HALOGEN V0.4           =                **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                            let there be dark  **\n");
@@ -99,6 +99,9 @@ int main(int argc, char **argv){
 #endif
 #ifdef NO_MASS_CONSERVATION
 	fprintf(stderr,"#def NO_MASS_CONSERVATION\n");
+#endif
+#ifdef MASS_OF_PARTS
+	fprintf(stderr,"#def MASS_OF_PARTS\n");
 #endif
 #ifdef RANKED
 	fprintf(stderr,"#def RANKED\n");
