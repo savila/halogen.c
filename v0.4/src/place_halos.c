@@ -3,6 +3,7 @@
 #include <time.h>
 #include <math.h> 
 #include <omp.h> 
+#include <string.h>
 
 #include "place_halos.h"
  
@@ -111,8 +112,9 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	t0=time(NULL);
 	NTotCells = NCells*NCells*NCells;
 	
+	MassLeft = malloc(NTotCells*sizeof(double));
+	memcpy(MassLeft,RemainingMass,NTotCells*sizeof(double));
 
-	MassLeft = RemainingMass;
 
 
 	//Allocate memory for the arrays 
@@ -168,9 +170,10 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	}
 
 	mpart = (double) mp;
-	Nmin = (long)ceil(HaloMass[Nend-1]/mpart);
+	//Nmin = (long)ceil(HaloMass[Nend-1]/mpart);
+	Nmin = (long)ceil(HaloMass[Nend-1]*0.8/mpart);
 
-	lcell = L/NCells;
+	lcell = (float) L/NCells;
 	#ifdef VERB
 	fprintf(stderr,"\n\tParticles and Halos placed in %ld^3 cells\n",NCells);
 	fprintf(stderr,"\tBOX = %f  lcell =%f   rho_ref = %e  invL %f\n",L,L/NCells,rho_ref,invL);
@@ -290,7 +293,13 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 
 #ifdef DEBUG
         fprintf(stderr,"\tMass_cell[0]=%e",MassLeft[0]);
+	fprintf(stderr,"\t Mass Function\n");
+	for (ihalo=0;ihalo<15;ihalo++){
+		fprintf(stderr,"\thalo %ld: ",ihalo);
+		fprintf(stderr,"M=%e\n",HaloMass[ihalo]);
+	}
 #endif
+
 
 #ifdef VERB
 	fprintf(stderr,"\t ...done\n\n");
@@ -299,13 +308,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	fprintf(stderr,"\ttime of the actual assignment %f\n",diff);
 	fprintf(stderr,"\tComputing probabilities...\n");
 #endif
-#ifdef DEBUG
-	fprintf(stderr,"\t Mass Function\n");
-	for (ihalo=0;ihalo<15;ihalo++){
-		fprintf(stderr,"\thalo %ld: ",ihalo);
-		fprintf(stderr,"M=%e\n",HaloMass[ihalo]);
-	}
-#endif
+
 //----------------------------------- Particles and haloes assigned to grid
 
 
@@ -324,7 +327,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	}	
 	Mchange = Malpha[i_alpha];
 	exponent = alpha[i_alpha];
-	//compute the probabiliy
+	//compute the probability
 	ComputeCumulative(exponent);
 #ifdef VERB
         fprintf(stderr,"\tNumber of alphas: %ld\n",Nalpha);
@@ -337,7 +340,6 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 // ----------------------------------------- Computed Probability
 
 
-fprintf(stderr,"\nHello\n\n");
 
 
 //Actually placing the haloes----------------------------------- 
@@ -352,11 +354,18 @@ fprintf(stderr,"\nHello\n\n");
 		fprintf(stderr,"\n\t- Halo %ld ",ihalo);
 		#endif
 
+		fprintf(stderr," a ");
+
 		//Check whether or not, a change of alpha is needed for this halo mass 		
 		Mhalo= HaloMass[ihalo];
+		fprintf(stderr," b ");
 
 		while (Mhalo < Mchange){//if so search the right alpha, and recompute probabilities
 			i_alpha++;		
+			if (i_alpha==Nalpha){
+				fprintf(stderr,"\tERROR: No M_alpha low enough found\n");
+				exit(0);
+			}
 			Mchange = Malpha[i_alpha];
 			exponent = alpha[i_alpha];
 			ComputeCumulative(exponent);
@@ -365,6 +374,7 @@ fprintf(stderr,"\nHello\n\n");
 		#endif
 		}
 
+		fprintf(stderr," c ");
 		do {	
 		  //First, choose a cell	
 		  #ifndef RANKED				
@@ -376,6 +386,7 @@ fprintf(stderr,"\nHello\n\n");
 		  #else
 		  lin_ijk=select_heaviest_cell(&i,&j,&k);		  
 		  #endif
+		fprintf(stderr," d ");
 
 		  trials=0;
 
@@ -383,16 +394,19 @@ fprintf(stderr,"\nHello\n\n");
 		  //Second, choose a particle in that cell
 		  do {
 			ipart = select_part(lin_ijk);		
+		fprintf(stderr," e ");
                		HaloX[ihalo] = PartX[ipart];
                		HaloY[ihalo] = PartY[ipart];
                		HaloZ[ihalo] = PartZ[ipart];
 			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]= R;
+		fprintf(stderr," f ");
 			#ifdef NO_EXCLUSION
 			check = 0;
 			#else
 			//Third, check that is not overlapping a previous halo
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
+		fprintf(stderr," g ");
 			#endif
 			if (check==1){
 				#ifdef DEBUG
@@ -402,7 +416,7 @@ fprintf(stderr,"\nHello\n\n");
 			}
 			if (trials == MAXTRIALS){
 				//in order to avoid infinite loop, we will exit this loop, after MAXTRIALS trials
-				#ifdef DEBUG
+				#ifdef VERB
 				fprintf(stderr,"MAXTRIALS=%d reached, selecting another cell\n",MAXTRIALS);
 				#endif
 				break;
@@ -431,7 +445,7 @@ fprintf(stderr,"\nHello\n\n");
 		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exponent)-pow(Mcell/mpart,exponent);
 
 		#ifdef DEBUG
-		fprintf(stderr,"\n \tassigned to cell %ld=[%ld,%ld,%ld]\n\t Before: Mcell=%e, TotProb=%e. ",lin_ijk,i,j,k,Mcell,TotProb);
+		fprintf(stderr,"\n \tassigned to cell %ld=[%ld,%ld,%ld]\n\t Before: Mcell=%e, CProbCell=%e,  TotProb=%e. ",lin_ijk,i,j,k,Mcell,CumulativeProb[lin_ijk],TotProb);
 		#endif
 		
 		#ifndef MASS_OF_PARTS
@@ -440,11 +454,12 @@ fprintf(stderr,"\nHello\n\n");
                   for(icell=lin_ijk;icell<NTotCells;icell++){
                         CumulativeProb[icell]+=ProbDiff;
                   }
-                  TotProb+=ProbDiff;
+                  //TotProb+=ProbDiff;
+                  TotProb=CumulativeProb[NCells*NCells*NCells-1];
 		#endif
 
 		#ifdef DEBUG
-		fprintf(stderr," After: Mcell=%e, TotProb=%e.   ProbDiff=%e, Mhalo=%e. CProb[%ld]=%e\n",MassLeft[lin_ijk],TotProb,ProbDiff,Mhalo,NTotCells-1,CumulativeProb[NTotCells-1]);
+		fprintf(stderr," After: Mcell=%e, CProbCell=%e, TotProb=%e.   ProbDiff=%e, Mhalo=%e. CProb[last]=%e\n",MassLeft[lin_ijk],CumulativeProb[lin_ijk],TotProb,ProbDiff,Mhalo,CumulativeProb[NTotCells-1]);
 		#endif
 	
 		#ifdef DEBUG
@@ -465,9 +480,13 @@ fprintf(stderr,"\nHello\n\n");
 	fprintf(stderr,"\n\tPlacement done!!!\n");
 #endif
 
+		fprintf(stderr," a ");
+	memcpy(RemainingMass,MassLeft,NTotCells*sizeof(double));
+		fprintf(stderr," b ");
         free(count); free(NPartPerCell);
         free(CumulativeProb);
 
+		fprintf(stderr," c ");
         for (i=0;i<NCells;i++){
                 for (j=0;j<NCells;j++){
                         for (k=0;k<NCells;k++){
@@ -477,11 +496,13 @@ fprintf(stderr,"\nHello\n\n");
                         }
                 }
         }
+		fprintf(stderr," d ");
         free(ListOfPart);
         free(ListOfHalos);
 #ifdef MASS_OF_PARTS
 	free(excluded); free(Nexcluded);
 #endif
+		fprintf(stderr," e ");
 	return 0;
 }
 
@@ -603,20 +624,20 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
 //#endif
 
   if (i>=0 && i<NCells && j>=0 && j<NCells && k>=0 && k<NCells){
-#ifdef ULTRADEBUG
+#ifdef DEBUG
        fprintf(stderr,"Checking cell [%ld,%ld,%ld] for halo %ld",i,j,k,ipart);
 #endif
         long lin_ijk = k+j*NCells+i*NCells*NCells;
-#ifdef ULTRADEBUG
+#ifdef DEBUG
 	fprintf(stderr,"= %ld.",lin_ijk);
 #endif
 	//loop over all the halos in that cell
 	for (jj=0; jj<NHalosPerCell[lin_ijk]; jj++){
-#ifdef ULTRADEBUG
+#ifdef DEBUG
 		fprintf(stderr,"jj=%ld/%ld ",jj,NHalosPerCell[lin_ijk]);
 #endif
 		jpart=ListOfHalos[lin_ijk][jj];
-#ifdef ULTRADEBUG
+#ifdef DEBUG
 		fprintf(stderr,"jpart=%ld ",jpart);
 #endif	
 		//Check for overlapping
@@ -706,7 +727,7 @@ int exclude_cell(long ipart,float R2, float *PartX, float *PartY, float *PartZ, 
        
 	 lin_ijk = k+j*NCells+i*NCells*NCells;
 
-        if (MassLeft[lin_ijk]==0.){
+        if (MassLeft[lin_ijk]<=0.){
                 #ifdef DEBUG
                 fprintf(stderr,"No mass left in cell [%ld,%ld,%ld]  M=%f \n",i,j,k,MassLeft[lin_ijk]);
                 #endif
@@ -730,17 +751,28 @@ int exclude_cell(long ipart,float R2, float *PartX, float *PartY, float *PartZ, 
                 }
 
         }
+	else{
+		fprintf(stderr,"ERROR: Periodical boundaries not working\n");
+		return -1;
+	}
         #ifdef DEBUG
         fprintf(stderr,"After: Nexcluded = %ld  .  Out of %ld particles\n",Nexcluded[lin_ijk], NPartPerCell[lin_ijk]);
         #endif
 	
 	MassLeft[lin_ijk]-=mpart*(Nexcluded[lin_ijk]-Nbef);
+	#ifdef DEBUG
+	fprintf(stderr,"lin_ijk=%ld    ",lin_ijk);
+	#endif
 	ProbDiff = pow(Nbef,exponent)-pow(Nexcluded[lin_ijk],exponent);	
 	#pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
         for(icell=lin_ijk;icell<NTotCells;icell++){
                  CumulativeProb[icell]+=ProbDiff;
         }
-        TotProb+=ProbDiff;
+        //TotProb+=ProbDiff;
+        TotProb=CumulativeProb[NCells*NCells*NCells-1];
+	#ifdef DEBUG
+	fprintf(stderr,"exclusion done\n");
+	#endif
 
         return 0;
 }

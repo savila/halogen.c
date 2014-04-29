@@ -1,8 +1,8 @@
 DEFS            +=      -DONLYBIG			#Haloes are allowed to overlap. But the center of the small halo cannot be inside the big halo.
 DEFS           +=      -DVERB				#Add some comments to cross-check.
 DEFS           +=      -DDEBUG				#Add many comments (for each halo). It slows down the proccess by a factor of 2 aprox.
-#DEFS           +=      -DULTRADEBUG			#Add comments in many specific parts. It slows down the process significantly. Use with fewer halos.
+DEFS           +=      -DULTRADEBUG			#Add comments in many specific parts. It slows down the process significantly. Use with fewer halos.
 #DEFS           +=      -DNO_EXCLUSION			#Haloes can overlap in any way.
 #DEFS		+=	-DNO_MASS_CONSERVATION		#The total mass of the halos in each cell can be arbitrarily big (not restricted to the original mass of the simulation)
 #DEFS		+=	-DRANKED			#At each time the most masive halo to place is set in the most massive cell available
-DEFS		+=	-DMASS_OF_PARTS			#The Mass substraction in cells is computed with the mass of the particles excluded (instead of the halo mass).
+#DEFS		+=	-DMASS_OF_PARTS			#The Mass substraction in cells is computed with the mass of the particles excluded (instead of the halo mass).
