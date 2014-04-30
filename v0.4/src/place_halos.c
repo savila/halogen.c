@@ -8,7 +8,7 @@
 #include "place_halos.h"
  
 
-#define MAXTRIALS (20)
+#define MAXTRIALS (100)
 
 
 
@@ -354,11 +354,9 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		fprintf(stderr,"\n\t- Halo %ld ",ihalo);
 		#endif
 
-		fprintf(stderr," a ");
 
 		//Check whether or not, a change of alpha is needed for this halo mass 		
 		Mhalo= HaloMass[ihalo];
-		fprintf(stderr," b ");
 
 		while (Mhalo < Mchange){//if so search the right alpha, and recompute probabilities
 			i_alpha++;		
@@ -374,7 +372,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		#endif
 		}
 
-		fprintf(stderr," c ");
+
 		do {	
 		  //First, choose a cell	
 		  #ifndef RANKED				
@@ -386,7 +384,6 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		  #else
 		  lin_ijk=select_heaviest_cell(&i,&j,&k);		  
 		  #endif
-		fprintf(stderr," d ");
 
 		  trials=0;
 
@@ -394,22 +391,19 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		  //Second, choose a particle in that cell
 		  do {
 			ipart = select_part(lin_ijk);		
-		fprintf(stderr," e ");
                		HaloX[ihalo] = PartX[ipart];
                		HaloY[ihalo] = PartY[ipart];
                		HaloZ[ihalo] = PartZ[ipart];
 			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]= R;
-		fprintf(stderr," f ");
 			#ifdef NO_EXCLUSION
 			check = 0;
 			#else
 			//Third, check that is not overlapping a previous halo
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
-		fprintf(stderr," g ");
 			#endif
 			if (check==1){
-				#ifdef DEBUG
+				#ifdef VERB
 				fprintf(stderr,"Refused part : %ld\n",ipart);
 				#endif
 				trials++;
@@ -417,8 +411,10 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 			if (trials == MAXTRIALS){
 				//in order to avoid infinite loop, we will exit this loop, after MAXTRIALS trials
 				#ifdef VERB
-				fprintf(stderr,"MAXTRIALS=%d reached, selecting another cell\n",MAXTRIALS);
+				fprintf(stderr,"MAXTRIALS=%d reached, removing cell [%ld,%ld,%ld]\n",MAXTRIALS,i,j,k);
 				#endif
+				MassLeft[lin_ijk]=0.;
+				ComputeCumulative(exponent);
 				break;
 			}
 		  } while (check==1);//If the particle was excluded, try another one in the same cell
@@ -480,13 +476,10 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 	fprintf(stderr,"\n\tPlacement done!!!\n");
 #endif
 
-		fprintf(stderr," a ");
 	memcpy(RemainingMass,MassLeft,NTotCells*sizeof(double));
-		fprintf(stderr," b ");
         free(count); free(NPartPerCell);
         free(CumulativeProb);
 
-		fprintf(stderr," c ");
         for (i=0;i<NCells;i++){
                 for (j=0;j<NCells;j++){
                         for (k=0;k<NCells;k++){
@@ -496,7 +489,6 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
                         }
                 }
         }
-		fprintf(stderr," d ");
         free(ListOfPart);
         free(ListOfHalos);
 #ifdef MASS_OF_PARTS
@@ -628,16 +620,16 @@ int check_HaloR_in_cell(long ipart,float *PartX, float *PartY, float *PartZ, flo
        fprintf(stderr,"Checking cell [%ld,%ld,%ld] for halo %ld",i,j,k,ipart);
 #endif
         long lin_ijk = k+j*NCells+i*NCells*NCells;
-#ifdef DEBUG
+#ifdef ULTRADEBUG
 	fprintf(stderr,"= %ld.",lin_ijk);
 #endif
 	//loop over all the halos in that cell
 	for (jj=0; jj<NHalosPerCell[lin_ijk]; jj++){
-#ifdef DEBUG
+#ifdef ULTRADEBUG
 		fprintf(stderr,"jj=%ld/%ld ",jj,NHalosPerCell[lin_ijk]);
 #endif
 		jpart=ListOfHalos[lin_ijk][jj];
-#ifdef DEBUG
+#ifdef ULTRADEBUG
 		fprintf(stderr,"jpart=%ld ",jpart);
 #endif	
 		//Check for overlapping
