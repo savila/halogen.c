@@ -1,6 +1,7 @@
 CC		=	gcc
 #OPT		=	-O2 -fopenmp 
-OPT		=	-O2 -Wall -fopenmp 
+#OPT		=	-O2 -Wall -fopenmp -g
+OPT		=	-O2 -Wall -fopenmp
 MLIB		=	-lm
 
 include ../Makefile.defs	
