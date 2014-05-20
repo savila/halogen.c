@@ -5,4 +5,4 @@ DEFS           +=      -DVERB				#Add some comments to cross-check.
 #DEFS           +=      -DNO_EXCLUSION			#Haloes can overlap in any way.
 #DEFS		+=	-DNO_MASS_CONSERVATION		#The total mass of the halos in each cell can be arbitrarily big (not restricted to the original mass of the simulation)
 #DEFS		+=	-DRANKED			#At each time the most masive halo to place is set in the most massive cell available
-DEFS		+=	-DMASS_OF_PARTS			#The Mass substraction in cells is computed with the mass of the particles excluded (instead of the halo mass).
+#DEFS		+=	-DMASS_OF_PARTS			#The Mass substraction in cells is computed with the mass of the particles excluded (instead of the halo mass).

@@ -209,15 +209,17 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 //Assign particles to grid ------------------------------------
 	//count particles per cell
 	for (ilong=0;ilong<NTotPart;ilong++) {
+		if (PartX[ilong]==Lbox)
+			PartX[ilong]=0.;
+		if (PartY[ilong]==Lbox)
+			PartY[ilong]=0.;
+		if (PartZ[ilong]==Lbox)
+			PartZ[ilong]=0.;
 		i = (long) (invL * PartX[ilong]*NCells);
 		j = (long) (invL * PartY[ilong]*NCells);
 		k = (long) (invL * PartZ[ilong]*NCells);
 		if (i<0 || i>=NCells || j<0 || j>=NCells || k<0 || k>=NCells){	
-			fprintf(stderr,"\tWARNING: Particle %ld at [%f,%f,%f] seems to be out of the right box interval [0.,%f)",ilong,PartX[ilong],PartY[ilong],PartZ[ilong],L);	
-			i=check_limit(i,NCells);
-			j=check_limit(j,NCells);
-			k=check_limit(k,NCells);
-			fprintf(stderr,", placed at cell [%ld,%ld,%ld]\n",i,j,k);
+			fprintf(stderr,"\tERROR: Particle %ld at [%f,%f,%f] seems to be out of the right box interval [0.,%f)",ilong,PartX[ilong],PartY[ilong],PartZ[ilong],L);	
 		}
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		NPartPerCell[lin_ijk]++;
@@ -265,9 +267,6 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		i = (long) (invL * PartX[ilong]*NCells);
 		j = (long) (invL * PartY[ilong]*NCells);
 		k = (long) (invL * PartZ[ilong]*NCells);
-		i=check_limit(i,NCells);
-		j=check_limit(j,NCells);
-		k=check_limit(k,NCells);
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		ListOfPart[lin_ijk][count[lin_ijk]] = ilong;
 		count[lin_ijk]++;
