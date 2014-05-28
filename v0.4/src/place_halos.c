@@ -213,16 +213,20 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 //Assign particles to grid ------------------------------------
 	//count particles per cell
 	for (ilong=0;ilong<NTotPart;ilong++) {
-		i = (long) (invL * PartX[ilong]*NCells);
-		j = (long) (invL * PartY[ilong]*NCells);
-		k = (long) (invL * PartZ[ilong]*NCells);
-		if (i<0 || i>=NCells || j<0 || j>=NCells || k<0 || k>=NCells){	
-			fprintf(stderr,"\tWARNING: Particle %ld at [%f,%f,%f] seems to be out of the right box interval [0.,%f)",ilong,PartX[ilong],PartY[ilong],PartZ[ilong],L);	
-			i=check_limit(i,NCells);
-			j=check_limit(j,NCells);
-			k=check_limit(k,NCells);
-			fprintf(stderr,", placed at cell [%ld,%ld,%ld]\n",i,j,k);
+
+                if (PartX[ilong]==Lbox)
+                        PartX[ilong]=0.;
+                if (PartY[ilong]==Lbox)
+                        PartY[ilong]=0.;
+                if (PartZ[ilong]==Lbox)
+                        PartZ[ilong]=0.;
+                i = (long) (invL * PartX[ilong]*NCells);
+                j = (long) (invL * PartY[ilong]*NCells);
+                k = (long) (invL * PartZ[ilong]*NCells);
+                if (i<0 || i>=NCells || j<0 || j>=NCells || k<0 || k>=NCells){
+                        fprintf(stderr,"\tERROR: Particle %ld at [%f,%f,%f] seems to be out of the right box interval [0.,%f)",ilong,PartX[ilong],PartY[ilong],PartZ[ilong],L);
 		}
+
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		NPartPerCell[lin_ijk]++;
 #ifdef DEBUG
@@ -264,14 +268,14 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
  	diff = difftime(t3,t2);
 	fprintf(stderr,"\ttime allocating %f\n",diff);
 #endif
-	#pragma omp parallel for private(ilong,i,k,j,lin_ijk) shared(NTotPart,invL,NCells,ListOfPart,count,PartZ,PartX,PartY) default(none)
+	#pragma omp parallel for private(ilong,i,k,j,lin_ijk) shared(NTotPart,invL,NCells,ListOfPart,count,PartZ,PartX,PartY,L,stderr) default(none)
 	for (ilong=0;ilong<NTotPart;ilong++) {
 		i = (long) (invL * PartX[ilong]*NCells);
 		j = (long) (invL * PartY[ilong]*NCells);
 		k = (long) (invL * PartZ[ilong]*NCells);
-		i=check_limit(i,NCells);
-		j=check_limit(j,NCells);
-		k=check_limit(k,NCells);
+                if (i<0 || i>=NCells || j<0 || j>=NCells || k<0 || k>=NCells){
+                        fprintf(stderr,"\tERROR: Particle %ld at [%f,%f,%f] seems to be out of the right box interval [0.,%f)",ilong,PartX[ilong],PartY[ilong],PartZ[ilong],L);
+		}
 		lin_ijk = k+j*NCells+i*NCells*NCells;
 		ListOfPart[lin_ijk][count[lin_ijk]] = ilong;
 		count[lin_ijk]++;
@@ -322,6 +326,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		i_alpha++;
 		if (i_alpha==Nalpha){
 			fprintf(stderr,"\tERROR: No M_alpha low enough found\n");
+			fprintf(stderr,"\tERROR: N_alpha = %ld, Mh=%e, Ma= %e\n",Nalpha,Mhalo,Malpha[i_alpha-1]);
 			exit(0);
 		}
 	}	
@@ -353,8 +358,10 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		#ifdef DEBUG
 		fprintf(stderr,"\n\t- Halo %ld ",ihalo);
 		#endif
-
-
+		#ifdef VERB
+		if ((ihalo%1000000)==0)
+			fprintf(stderr,"\t%d million haloes done\n",(ihalo/1000000));
+		#endif
 		//Check whether or not, a change of alpha is needed for this halo mass 		
 		Mhalo= HaloMass[ihalo];
 
@@ -403,7 +410,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 			check = check_HaloR_in_mesh(ihalo,HaloX,HaloY,HaloZ,HaloR,i,j,k);
 			#endif
 			if (check==1){
-				#ifdef VERB
+				#ifdef DEBUG
 				fprintf(stderr,"Refused part : %ld\n",ipart);
 				#endif
 				trials++;

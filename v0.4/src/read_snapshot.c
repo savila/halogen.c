@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 
 #include "read_snapshot.h"
 /*=============================================================================
@@ -142,6 +143,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
       gadget.np[5]     = (long *) calloc(gadget.no_gadget_files, sizeof(long *));
             
       /* read multi-GADGET files one by one */
+      //#pragma omp parallel for private(i_gadget_file,icfile,gadget_file) shared(no_gadget_files,gadget,infile_name,stderr,out_x,out_y,out_z) default(none)
       for(i_gadget_file=0; i_gadget_file<no_gadget_files; i_gadget_file++)
        {
         sprintf(gadget_file,"%s.%d",infile_name,i_gadget_file);
@@ -364,6 +366,12 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
   #ifdef DEBUG
   fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
   #endif
+
+  fprintf(stderr,"Thread %d/%d\n",omp_get_thread_num(),omp_get_num_threads());
+  //#pragma omp barrier
+  
+
+
   for(i=0;i<no_part;i++)
    {    
     /* read */
@@ -379,10 +387,14 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
        ReadFloat(icfile,&(fdummy[1]),SWAPBYTES);
        ReadFloat(icfile,&(fdummy[2]),SWAPBYTES);
       }
-     
+    
     /* get proper position in  array */
     pid = get_pid(i);
-    
+   
+    if (i==0)
+	fprintf(stderr,"Thread %d/%d: nstart = %ld\n",omp_get_thread_num(),omp_get_num_threads(),pid);
+
+ 
     /* storage and conversion to comoving physical units */
     (*out_x)[pid] = fdummy[0] * x_fac;
     (*out_y)[pid] = fdummy[1] * x_fac;
