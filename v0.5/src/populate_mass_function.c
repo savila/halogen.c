@@ -53,10 +53,14 @@ long populate_mass_function(char *filename, double Mmin, double Lbox, float **ha
 	y2 = (double *) calloc(Npoints,sizeof(double));
 
 	get_cubic_splines(mass_arr,dens_arr,Npoints,y2);
-
-	dens_max = spline_inter(mass_arr,dens_arr,Npoints,y2,Mmin);
-	Nhalos = (long)(dens_max*Lbox*Lbox*Lbox+0.5);
 	
+	#ifndef NDENS
+	 dens_max = spline_inter(mass_arr,dens_arr,Npoints,y2,Mmin);
+	#else
+	 dens_max = Mmin;
+	#endif
+
+	Nhalos = (long)(dens_max*Lbox*Lbox*Lbox+0.5);	
 
 	fprintf(stderr,"\tNumber of halos: %ld\n",Nhalos);	
 

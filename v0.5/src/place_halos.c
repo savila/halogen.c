@@ -75,11 +75,11 @@ long check_limit(long i, long N){
 //
 //Takes a list of halo masses (Nhalos, HaloMass), a list of particles (NTotPart,PartX,PartY,PartZ), some simulation parameters (L, mp), and user-defined parameters (Nlin,rho_ref,alpha,Malpha,Nalpha,seed)
 //and returns a list of halo positions and radii (HaloX,HaloY,HaloZ,HaloR)
-int place_halos(long Nhalos, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloR){
+int place_halos(long Nhalos, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float *PartVX, float *PartVY, float *PartVZ,float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloVX, float *HaloVY, float *HaloVZ,float *HaloR){
 	int out;
 	double *RemainingMass;
 	RemainingMass = (double *) calloc(Nlin*Nlin*Nlin,sizeof(double));
-	out = place_halos_byparts(0, Nhalos, HaloMass, Nlin,  NTotPart,  PartX,  PartY, PartZ,  L,  rho_ref, seed,  mp, alpha, Malpha,Nalpha,HaloX, HaloY, HaloZ, HaloR, RemainingMass);
+	out = place_halos_byparts(0, Nhalos, HaloMass, Nlin,  NTotPart,  PartX,  PartY, PartZ, PartVX,  PartVY, PartVZ, L,  rho_ref, seed,  mp, alpha, Malpha,Nalpha,HaloX, HaloY, HaloZ, HaloVX, HaloVY, HaloVZ,HaloR, RemainingMass);
 	free(RemainingMass);
 	return out;
 }
@@ -87,7 +87,7 @@ int place_halos(long Nhalos, float *HaloMass, long Nlin, long NTotPart, float *P
 
 //place_halos_byparts():
 //for fitting analysis, it can be useful to only place some interval [Nstart,Nend] of the halo list
-int place_halos_byparts(long Nstart, long Nend, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloR, double *RemainingMass){
+int place_halos_byparts(long Nstart, long Nend, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float *PartVX, float *PartVY, float *PartVZ, float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloVX, float *HaloVY, float *HaloVZ, float *HaloR, double *RemainingMass){
 
 fprintf(stderr,"\tThis is place_halos.c v10+\n");
 
@@ -360,7 +360,7 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
 		#endif
 		#ifdef VERB
 		if ((ihalo%1000000)==0)
-			fprintf(stderr,"\t%d million haloes done\n",(ihalo/1000000));
+			fprintf(stderr,"\t%ld million haloes done\n",(ihalo/1000000));
 		#endif
 		//Check whether or not, a change of alpha is needed for this halo mass 		
 		Mhalo= HaloMass[ihalo];
@@ -401,6 +401,9 @@ fprintf(stderr,"\tThis is place_halos.c v10+\n");
                		HaloX[ihalo] = PartX[ipart];
                		HaloY[ihalo] = PartY[ipart];
                		HaloZ[ihalo] = PartZ[ipart];
+               		HaloVX[ihalo] = PartVX[ipart];
+               		HaloVY[ihalo] = PartVY[ipart];
+               		HaloVZ[ihalo] = PartVZ[ipart];
 			R=R_from_mass(HaloMass[ihalo],rho_ref);
 			HaloR[ihalo]= R;
 			#ifdef NO_EXCLUSION
