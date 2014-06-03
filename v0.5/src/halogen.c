@@ -21,7 +21,9 @@
 #define LINELENGTH 256
 #define NParam 15
 
-char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile","OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","MinNumPartPerHalo","GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong","Seed"};
+char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile","OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","Mmin","GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong","Seed"};
+
+
 int ParameterSet[NParam];
 int NParametersSet = 0;
 long seed;
@@ -50,7 +52,7 @@ int SWP, LGADGET, DGADGET;
 
 int read_input_file(char *);
 
-int write_halogen_cat(char *, float *, float *, float *, float *, float *, long);
+int write_halogen_cat(char *, float *, float *, float *, float *, float *, float *, float *, float *, long);
 
 
 
@@ -63,7 +65,7 @@ int main(int argc, char **argv){
 
 	fprintf(stderr,"\n*******************************************************************\n");
 	fprintf(stderr,"**                                                               **\n");
-	fprintf(stderr,"**            =          HALOGEN V0.4           =                **\n");
+	fprintf(stderr,"**            =          HALOGEN V0.5           =                **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                            let there be dark  **\n");
@@ -74,7 +76,7 @@ int main(int argc, char **argv){
 		return -1;
 	}
 
-	float Lbox, mpart, *x, *y, *z, *hx, *hy, *hz, *hR, om_m;	
+	float Lbox, mpart, *x, *y, *z, *vx,*vy,*vz,*hx, *hy, *hz, *hvx,*hvy,*hvz,*hR, om_m;	
 	char inname[256];
 	long Npart, Nhalos;
 	float *HaloMass, rho;
@@ -106,6 +108,9 @@ int main(int argc, char **argv){
 #ifdef RANKED
 	fprintf(stderr,"#def RANKED\n");
 #endif
+#ifdef NDENS
+	fprintf(stderr,"#def NDENS\n");
+#endif
 
 
 	fprintf(stderr,"\nReading input file...\n");
@@ -115,7 +120,7 @@ int main(int argc, char **argv){
 
 
 	fprintf(stderr,"Reading Gadget file(s)...\n");
-	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,&x, &y, &z, &Npart, &mpart, &Lbox, &om_m)==0)
+	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,&x, &y, &z, &vx, &vy, &vz, &Npart, &mpart, &Lbox, &om_m)==0)
 		fprintf(stderr,"Gadget file(s) correctly read!\n");
 	else {
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);
@@ -136,7 +141,7 @@ int main(int argc, char **argv){
 
 	//Generate the halo masses from the mass function
 	fprintf(stderr,"Generating Halo Masses...\n");
-	Nhalos = populate_mass_function(MassFunctionFile,Mmin*mpart,Lbox,&HaloMass,seed);
+	Nhalos = populate_mass_function(MassFunctionFile,Mmin,Lbox,&HaloMass,seed);
 	if (Nhalos<0)
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 	fprintf(stderr,"...Halo Masses Generated\n");
@@ -145,6 +150,9 @@ int main(int argc, char **argv){
 	hx = (float *) calloc(Nhalos,sizeof(float));
 	hy = (float *) calloc(Nhalos,sizeof(float));
 	hz = (float *) calloc(Nhalos,sizeof(float));
+	hvx = (float *) calloc(Nhalos,sizeof(float));
+	hvy = (float *) calloc(Nhalos,sizeof(float));
+	hvz = (float *) calloc(Nhalos,sizeof(float));
 	hR = (float *) calloc(Nhalos,sizeof(float));
 	
 	MassLeft = (double *) calloc(Nlin*Nlin*Nlin,sizeof(double));
@@ -157,7 +165,7 @@ int main(int argc, char **argv){
 
 	//place the halos
 	fprintf(stderr,"Placing halos down...\n");
-	if (place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, Lbox, rho,seed,mpart, alpha, Malpha, Nalpha, hx, hy, hz, hR)==0)
+	if (place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, vx,vy,vz,Lbox, rho,seed,mpart, alpha, Malpha, Nalpha, hx, hy, hz, hvx,hvy,hvz, hR)==0)
 		fprintf(stderr,"...halos placed correctly\n");
 	else {
 		fprintf(stderr,"Problem placing halos\n");
@@ -166,7 +174,7 @@ int main(int argc, char **argv){
 
 	//writting output	
 	fprintf(stderr,"Writing Halo catalogue...\n");
-	write_halogen_cat(OutputFile,hx,hy,hz,HaloMass,hR,Nhalos);
+	write_halogen_cat(OutputFile,hx,hy,hz,hvx,hvy,hvz,HaloMass,hR,Nhalos);
 	fprintf(stderr,"...halo catalogue written in %s\n",OutputFile);
 	
 	free(hx);free(hy);free(hz);free(hR);
@@ -185,7 +193,7 @@ int main(int argc, char **argv){
  *                              I/O
  *=============================================================================*/
 
-int write_halogen_cat(char *filename, float *x, float *y, float *z, float *M, float *R,long N){
+int write_halogen_cat(char *filename, float *x, float *y, float *z, float *vx, float *vy, float *vz, float *M, float *R,long N){
 	FILE *f;
 	long i;
 	if ((f=fopen(filename,"w") )== NULL){
@@ -193,7 +201,7 @@ int write_halogen_cat(char *filename, float *x, float *y, float *z, float *M, fl
 		return -1;
 	}
 	for(i=0;i<N;i++){
-		fprintf(f,"%f %f %f %e %f\n",x[i],y[i],z[i],M[i],R[i]);
+		fprintf(f,"%f %f %f %f %f %f %e %f\n",x[i],y[i],z[i],vx[i],vy[i],vz[i],M[i],R[i]);
 	}
 	fclose(f);
 	return 0;

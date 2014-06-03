@@ -90,7 +90,7 @@ struct info_gadget
 /*=============================================================================
  *                                PROTOTYPES
  *=============================================================================*/
-void read_gadget(FILE *icfile,float **out_x,float **out_y, float **out_z);
+void read_gadget(FILE *icfile,float **out_x,float **out_y, float **out_z,float **out_vx,float **out_vy, float **out_vz);
 long get_pid(int i);
 
 
@@ -98,7 +98,7 @@ long get_pid(int i);
 /*=============================================================================
  *                                   MAIN
  *=============================================================================*/
-int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, float **out_x, float **out_y, float **out_z, long *out_Np, float *out_mp, float *out_L, float *out_omega_0){
+int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, float **out_x, float **out_y, float **out_z, float **out_vx, float **out_vy, float **out_vz,long *out_Np, float *out_mp, float *out_L, float *out_omega_0){
   char    gadget_file[MAXSTRING];
   int     no_gadget_files, i_gadget_file;
   FILE   *icfile;
@@ -155,7 +155,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
         gadget.i_gadget_file = i_gadget_file;
         
         /* read files... */
-        read_gadget(icfile,out_x,out_y,out_z);
+        read_gadget(icfile,out_x,out_y,out_z,out_vx,out_vy,out_vz);
         fclose(icfile);
        } 
       
@@ -191,7 +191,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
     gadget.np[4]     = (long *) calloc(gadget.no_gadget_files, sizeof(long *));
     gadget.np[5]     = (long *) calloc(gadget.no_gadget_files, sizeof(long *));
     
-    read_gadget(icfile,out_x,out_y,out_z);
+    read_gadget(icfile,out_x,out_y,out_z,out_vx,out_vy,out_vz);
     fclose(icfile);
     
     /* remove temporary storage again */
@@ -220,7 +220,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
 /*=============================================================================
  *                                READ_GADGET
  *=============================================================================*/
-void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
+void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z, float **out_vx,float **out_vy,float **out_vz)
 {
 
   int            i;
@@ -343,6 +343,21 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
       fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
       exit(1);
      }
+    if(!((*out_vx)=(float *) calloc(gadget.nall, sizeof(float))))
+     {
+      fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
+      exit(1);
+     }
+    if(!((*out_vy)=(float *) calloc(gadget.nall, sizeof(float))))
+     {
+      fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
+      exit(1);
+     }
+    if(!((*out_vz)=(float *) calloc(gadget.nall, sizeof(float))))
+     {
+      fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
+      exit(1);
+     }
 
    }
    
@@ -400,6 +415,7 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
     (*out_y)[pid] = fdummy[1] * x_fac;
     (*out_z)[pid] = fdummy[2] * x_fac;
    }
+
   #ifdef DEBUG
   fprintf(stderr,"Pos[X]=%12.6g Pos[Y]=%12.6g Pos[Z]=%12.6g ... ",(*out_x)[no_part-1],(*out_y)[no_part-1],(*out_z)[no_part-1]);
   #endif 
@@ -408,7 +424,51 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
   fprintf(stderr,"(%8.2g MB) done.\n",blklen/1024./1024.);
   #endif
   /*================= read in GADGET particles =================*/
-  
+  /*================= read in GADGET velocities =================*/  
+  if(FORMAT == 2)
+   {
+    GADGET_SKIP;
+    fread(DATA,sizeof(char),blklen,icfile);
+    DATA[4] = '\0';
+    fprintf(stderr,"reading... %s",DATA);
+    GADGET_SKIP;
+   }
+  else
+   {
+    fprintf(stderr,"reading ");
+   }
+
+  GADGET_SKIP;
+  fprintf(stderr,"(%8.2g MB) ... ",blklen/1024./1024.);
+
+  for(i=0;i<no_part;i++)
+   {
+    /* read */
+    if(DGADGET)
+     {
+      ReadDouble(icfile,&(ddummy[0]),SWAPBYTES);
+      ReadDouble(icfile,&(ddummy[1]),SWAPBYTES);
+      ReadDouble(icfile,&(ddummy[2]),SWAPBYTES);
+     }
+    else
+     {
+      ReadFloat(icfile,&(fdummy[0]),SWAPBYTES);
+      ReadFloat(icfile,&(fdummy[1]),SWAPBYTES);
+      ReadFloat(icfile,&(fdummy[2]),SWAPBYTES);
+      ddummy[0] = fdummy[0];
+      ddummy[1] = fdummy[1];
+      ddummy[2] = fdummy[2];
+     }
+
+    /* get proper position in Part[] array */
+    pid = get_pid(i);
+
+    (*out_vx)[pid] = ddummy[0];
+    (*out_vy)[pid] = ddummy[1];
+    (*out_vz)[pid] = ddummy[2];
+   }
+  /*================= read in GADGET velocities =================*/
+
 
  
   /* massflag == 1 indicates that massarr[i] = 0 which shouldnt be the case for HALOGEN */
@@ -417,7 +477,6 @@ void read_gadget(FILE *icfile, float **out_x,float **out_y,float **out_z)
 	fprintf(stderr,"ERROR: HALOGEN does not expect to encounter varying masses\n");
 	exit(0);
    }
-
   
 }
 
