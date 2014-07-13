@@ -66,7 +66,7 @@ int main(int argc, char **argv){
 
 	fprintf(stderr,"\n*******************************************************************\n");
 	fprintf(stderr,"**                                                               **\n");
-	fprintf(stderr,"**            =          HALOGEN V0.5           =                **\n");
+	fprintf(stderr,"**            =          HALOGEN V0.6.3           =                **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                                               **\n");
 	fprintf(stderr,"**                                            let there be dark  **\n");
@@ -120,15 +120,20 @@ int main(int argc, char **argv){
 		return -1;
 	fprintf(stderr,"... file read correctly!\n");
 
-
+	ListOfParticles = (long **) calloc(Nlin*Nlin*Nlin,sizeof(long *));
+	NPartPerCell = (long *) calloc(Nlin*Nlin*Nlin,sizeof(long));
 	fprintf(stderr,"Reading Gadget file(s)...\n");
-	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,Nlin,&x, &y, &z, &vx, &vy, &vz, &Npart, &mpart, &Lbox, &om_m,&ListOfParticles,&NPartPerCell)==0)
+	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,Nlin,&x, &y, &z, &vx, &vy, &vz, &Npart, &mpart, &Lbox, &om_m,ListOfParticles,NPartPerCell)==0)
 		fprintf(stderr,"Gadget file(s) correctly read!\n");
 	else {
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);
 		return -1;
 	}
 	
+	fprintf(stderr,"N[0]=%ld, N[1]=%ld, N[2]=%ld, \n",NPartPerCell[0],NPartPerCell[1],NPartPerCell[2]);	
+
+
+
 	#ifdef VERB
 	fprintf(stderr,"\n\tCheck: Npart=%ld, mpart=%e, Lbox=%f\n",Npart,mpart,Lbox);
 	fprintf(stderr,"\tx[0]= %f, y[0]= %f, z[0]= %f\n",(x)[0],(y)[0],(z)[0]);

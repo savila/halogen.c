@@ -98,7 +98,7 @@ long get_pid(int i);
 /*=============================================================================
  *                                   MAIN
  *=============================================================================*/
-int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, int NCells, float **out_x, float **out_y, float **out_z, float **out_vx, float **out_vy, float **out_vz,long *out_Np, float *out_mp, float *out_L, float *out_omega_0,long ***ListOfPart,long **NPartPerCell){
+int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, int NCells, float **out_x, float **out_y, float **out_z, float **out_vx, float **out_vy, float **out_vz,long *out_Np, float *out_mp, float *out_L, float *out_omega_0,long **ListOfPart,long *NPartPerCell){
   char    gadget_file[MAXSTRING];
   int     no_gadget_files, i_gadget_file;
   long  ipart=0,ii,i,j,k,lin_ijk;
@@ -283,16 +283,16 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
    }
 
 	//Distribute Particles
-        *ListOfPart = (long **) calloc(NCells*NCells*NCells,sizeof(long *));
-        if( *ListOfPart == NULL) {
+       /* ListOfPart = (long **) calloc(NCells*NCells*NCells,sizeof(long *));
+        if( ListOfPart == NULL) {
                 fprintf(stderr,"\tplace_halos(): could not allocate %d array for NPartPerCell[]\nABORTING",NCells*NCells*NCells);
                 exit(-1);
         }
-        (*NPartPerCell) = (long *) calloc(NCells*NCells*NCells,sizeof(long));
-        if( *NPartPerCell == NULL) {
+        (NPartPerCell) = (long *) calloc(NCells*NCells*NCells,sizeof(long));
+        if( NPartPerCell == NULL) {
                 fprintf(stderr,"\tplace_halos(): could not allocate %d array for NPartPerCell[]\nABORTING",NCells*NCells*NCells);
                 exit(-1);
-        }
+        }*/
 	count = (long *) calloc(NCells*NCells*NCells,sizeof(long));
         if( count == NULL) {
                 fprintf(stderr,"\tplace_halos(): could not allocate %d array for NPartPerCell[]\nABORTING",NCells*NCells*NCells);
@@ -319,7 +319,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
                 }
 
                 lin_ijk = k+j*NCells+i*NCells*NCells;
-                (*NPartPerCell)[lin_ijk]++;
+                (NPartPerCell)[lin_ijk]++;
 		ipart++;
         }
         fprintf(stderr,"\t Particles Counted \n\n");
@@ -330,7 +330,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
         for (k=0;k<NCells;k++){
                 lin_ijk = k+j*NCells+i*NCells*NCells;
 		//fprintf(stderr,"lin_ijk=%d\n",lin_ijk);
-                (*ListOfPart)[lin_ijk] = (long *) calloc((*NPartPerCell)[lin_ijk],sizeof(long));
+                (ListOfPart)[lin_ijk] = (long *) calloc((NPartPerCell)[lin_ijk],sizeof(long));
         }
         }
         }
@@ -360,7 +360,7 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
 		(*out_vy)[ipart] = file_vy[i_gadget_file][ii];
 		(*out_vz)[ipart] = file_vz[i_gadget_file][ii];
                 lin_ijk = k+j*NCells+i*NCells*NCells;
-                (*ListOfPart)[lin_ijk][count[lin_ijk]] = ipart;
+                (ListOfPart)[lin_ijk][count[lin_ijk]] = ipart;
                 count[lin_ijk]++;
 		ipart++;
         }
@@ -371,6 +371,9 @@ int read_snapshot(char *infile_name, int format, float lunit, float munit, int s
 	*out_mp  = GADGET_MUNIT*gadget.header.massarr[1];
 	*out_Np  = gadget.nall; 
 	*out_L   = gadget.header.BoxSize;
+
+
+        fprintf(stderr,"N[0]=%ld, N[1]=%ld, N[2]=%ld, \n",NPartPerCell[0],NPartPerCell[1],NPartPerCell[2]); 
 
 
 	return 0;

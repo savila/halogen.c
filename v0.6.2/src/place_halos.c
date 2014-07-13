@@ -71,17 +71,17 @@ long check_limit(long i, long N){
 //
 //Takes a list of halo masses (Nhalos, HaloMass), a list of particles (NTotPart,PartX,PartY,PartZ), some simulation parameters (L, mp), and user-defined parameters (Nlin,rho_ref,alpha,Malpha,Nalpha,seed)
 //and returns a list of halo positions and radii (HaloX,HaloY,HaloZ,HaloR)
-int place_halos(long Nend, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float *PartVX, float *PartVY, float *PartVZ,float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloVX, float *HaloVY, float *HaloVZ,float *HaloR){
+int place_halos(long Nend, float *HaloMass, long Nlin, long NTotPart, float *PartX, float *PartY, float *PartZ, float *PartVX, float *PartVY, float *PartVZ,float L, float rho_ref, long seed, float mp, double *alpha, double *Malpha,long Nalpha,float *HaloX, float *HaloY, float *HaloZ, float *HaloVX, float *HaloVY, float *HaloVZ,float *HaloR,long **ListOfPart, long *NPartPerCell){
 
 
 fprintf(stderr,"\tThis is place_halos.c v11\n");
 
 
 //Initiallising -------------------------------------------------
-	long i,j,k,lin_ijk,check, icell, Nmin;
+	long i,j,k,lin_ijk,check, Nmin;
 	long *count,trials;
 	long ihalo,ilong, ipart,i_alpha;
-	double invL = 1./L, ProbDiff;
+	double invL = 1./L;
 	float Mcell,Mhalo,Mchange; 
 	float R;
 	time_t t0;
@@ -92,7 +92,7 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 	double TotProb;
 	double *MassLeft;
 	double *CumulativeProb; 
-	long **ListOfPart, **ListOfHalos, *NPartPerCell, *NHalosPerCell;
+	long **ListOfHalos,  *NHalosPerCell;
 	long Nstart=0,Nhalos;
 
 	#ifdef VERB
@@ -110,11 +110,11 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 
 
 	//Allocate memory for the arrays 
-	NPartPerCell = (long *) calloc(NTotCells,sizeof(long));
-  	if( NPartPerCell == NULL) {
+	//NPartPerCell = (long *) calloc(NTotCells,sizeof(long));
+  /*	if( NPartPerCell == NULL) {
     		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for NPartPerCell[]\nABORTING",NTotCells);
     		exit(-1);
-	}
+	}*/
 	NHalosPerCell = (long *) calloc(NTotCells,sizeof(long));
   	if(NHalosPerCell == NULL) {
     		fprintf(stderr,"\tplace_halos(): could not allocate %ld array for NHalosPerCell[]\nABORTING",NTotCells);
@@ -204,7 +204,7 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 
 //Assign particles to grid ------------------------------------
 	//count particles per cell
-	for (ilong=0;ilong<NTotPart;ilong++) {
+	/*for (ilong=0;ilong<NTotPart;ilong++) {
 
                 if (PartX[ilong]==Lbox)
                         PartX[ilong]=0.;
@@ -220,12 +220,12 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 		}
 
 		lin_ijk = k+j*NCells+i*NCells*NCells;
-		NPartPerCell[lin_ijk]++;
+//		NPartPerCell[lin_ijk]++;
 #ifdef DEBUG
 		if(ilong<10 || ilong > NTotPart -10 || ilong==243666)
 			fprintf(stderr,"\tipart=%ld  cell: %ld=[%ld,%ld,%ld] Parts in cell=%ld, Pos= [%f,%f,%f]\n",ilong,lin_ijk,i,j,k,NPartPerCell[lin_ijk],PartX[ilong],PartY[ilong],PartZ[ilong]);
 #endif
-	}
+	}*/
 #ifdef VERB
 	fprintf(stderr,"\t... particles counted ...\n");
 	t2=time(NULL);
@@ -233,13 +233,13 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 	fprintf(stderr,"\ttime counting %f\n",diff);
 #endif
 	//Alloc Enough Memory
-	ListOfPart = (long **) calloc(NCells*NCells*NCells,sizeof(long *));
+	//ListOfPart = (long **) calloc(NCells*NCells*NCells,sizeof(long *));
 	ListOfHalos = (long **) calloc(NCells*NCells*NCells,sizeof(long *));
 	for (i=0;i<NCells;i++){
 	for (j=0;j<NCells;j++){
 	for (k=0;k<NCells;k++){
 		lin_ijk = k+j*NCells+i*NCells*NCells;
-		ListOfPart[lin_ijk] = (long *) calloc(NPartPerCell[lin_ijk],sizeof(long));
+		//ListOfPart[lin_ijk] = (long *) calloc(NPartPerCell[lin_ijk],sizeof(long));
 		Nhalos = (long) (NPartPerCell[lin_ijk]/Nmin);
 		ListOfHalos[lin_ijk] = (long *) calloc(Nhalos,sizeof(long));
 		if (Nstart==0)
@@ -259,7 +259,8 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 	t3=time(NULL);
  	diff = difftime(t3,t2);
 	fprintf(stderr,"\ttime allocating %f\n",diff);
-#endif
+#endif 
+/*
 	#pragma omp parallel for private(ilong,i,k,j,lin_ijk) shared(NTotPart,invL,NCells,ListOfPart,count,PartZ,PartX,PartY,L,stderr) default(none)
 	for (ilong=0;ilong<NTotPart;ilong++) {
 		i = (long) (invL * PartX[ilong]*NCells);
@@ -272,9 +273,10 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 		ListOfPart[lin_ijk][count[lin_ijk]] = ilong;
 		count[lin_ijk]++;
 	}
+
 #ifdef VERB
 	fprintf(stderr,"\t...particles assigned, now haloes...\n");
-#endif
+#endif */
 	for (ihalo=0;ihalo<Nstart;ihalo++){
 		i = (long) (invL * HaloX[ihalo]*NCells);
 		j = (long) (invL * HaloY[ihalo]*NCells);
@@ -441,13 +443,14 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 
 
 	#ifndef NO_MASS_CONSERVATION
-		ProbDiff = pow(MassLeft[lin_ijk]/mpart,exponent)-pow(Mcell/mpart,exponent);
+		double ProbDiff = pow(MassLeft[lin_ijk]/mpart,exponent)-pow(Mcell/mpart,exponent);
 
 		#ifdef DEBUG
 		fprintf(stderr,"\n \tassigned to cell %ld=[%ld,%ld,%ld]\n\t Before: Mcell=%e, CProbCell=%e,  TotProb=%e. ",lin_ijk,i,j,k,Mcell,CumulativeProb[lin_ijk],TotProb);
 		#endif
 		
 		#ifndef MASS_OF_PARTS
+		long icell;
 		  //Substract the Probability difference from the array (only affected those cells after the selected one)
                   #pragma omp parallel for private(icell) shared(CumulativeProb,ProbDiff,NTotCells,lin_ijk) default(none)
                   for(icell=lin_ijk;icell<NTotCells;icell++){
@@ -482,7 +485,8 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
 	fprintf(stderr,"\n\tPlacement done!!!\n");
 #endif
 	free(NHalosPerCell);
-        free(count); free(NPartPerCell);
+        free(count); 
+	//free(NPartPerCell);
         free(CumulativeProb);
 	free(MassLeft);
 /*        for (i=0;i<NCells;i++){
@@ -495,7 +499,7 @@ fprintf(stderr,"\tThis is place_halos.c v11\n");
                 }
         }
 */
-        free(ListOfPart);
+        //free(ListOfPart);
         free(ListOfHalos);
 #ifdef MASS_OF_PARTS
 	free(excluded); free(Nexcluded);
