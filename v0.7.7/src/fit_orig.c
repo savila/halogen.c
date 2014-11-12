@@ -7,7 +7,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include <omp.h>
 
 #include "read_snapshot.h"
 #include "populate_mass_function.h"
@@ -30,7 +29,7 @@
 
 char ParameterList[NParam][32] = {"Snapshot","GadgetFormat","MassFunctionFile",
 		"OutputDir","NCellsLin","rho_ref","Overdensity","Mmin",
-		"GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong","NbodyFile","recalc_frac",
+		"GadL_Unit","GadM_Unit","GadSwap","GadDouble","GadLong","NbodyFile","Nrecalc",
 		"Dmax","Dmin","alpha_ratio","alpha_ratio_1","best_alpha","num_alpha","ntrials",
 		"nthreads","nr","minr","maxr","beta"};
 
@@ -48,7 +47,7 @@ char OutputDir[LINELENGTH],MassFunctionFile[LINELENGTH];//, alphaFile[LINELENGTH
 char NbodyFile[LINELENGTH];
 
 int format;
-double recalc_frac;
+int Nrecalc;
 float Dmax, Dmin;
 
 int Nlin;
@@ -100,7 +99,7 @@ int ncoeffs;
 
 int read_input_file(char *);
 int get_mass_bins(float *, long, int, int);
-int find_best_alpha(float *);
+int find_best_alpha(double *, float *);
 long read_nbody(float **, float **, float **, float **);
 int get_nbody_2pcf(float *, float *, float *, float *, long);
 double minimize(double,double,double);
@@ -124,6 +123,7 @@ int main(int argc, char **argv){
 	}
 
 	char inname[256];
+	double *MassLeft;
 	float *dens;
 	float *hx, *hy, *hz, *hR;
 	strcpy(inname,argv[1]);
@@ -160,23 +160,7 @@ int main(int argc, char **argv){
 #ifdef NDENS
 	fprintf(stderr,"#def NDENS\n");
 #endif
-#ifdef NO_PROB_PARALEL
-	fprintf(stderr,"#def NO_PROB_PARALEL\n");
-#endif
-#ifdef NO_PAR_FIT
-	fprintf(stderr,"#def NO_PAR_FIT\n");
-#endif
-#ifdef FITTING
-	fprintf(stderr,"#def FITTING\n");
-#else
-	fprintf(stderr,"WARNING: nodef FITTING");
-#endif
-#ifdef MASS_CUTS_FIT
-	fprintf(stderr,"#def MASS_CUTS_FIT\n");
-#endif
-#ifdef BETA0
-	fprintf(stderr,"#def BETA0\n");
-#endif
+
 
 	fprintf(stderr,"\nReading input file...\n");
 	if (read_input_file(inname)<0)
@@ -195,14 +179,14 @@ int main(int argc, char **argv){
 	strcat(OutputAlphaM,"/M-alpha.txt");
 
 	fprintf(stderr,"Reading Gadget file(s)...\n");
-	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,Nlin,64,&x, &y, &z, NULL, NULL, NULL, &Npart, &mpart, &Lbox, &om_m,&ListOfParticles,&NPartPerCell,&dens)==0)
+	if (read_snapshot(Snapshot, format, LUNIT, MUNIT, SWP, LGADGET, DGADGET,Nlin,nthreads,&x, &y, &z, NULL, NULL, NULL, &Npart, &mpart, &Lbox, &om_m,&ListOfParticles,&NPartPerCell,&MassLeft,&dens)==0)
 		fprintf(stderr,"Gadget file(s) correctly read!\n");
 	else {
 		fprintf(stderr,"error: Something went wrong reading the gadget file %s\n",inname);
 		return -1;
 	}
 	
-
+	fprintf(stderr,"ML[0],ML[-1]: %e, %e\n",MassLeft[0],MassLeft[Nlin*Nlin*Nlin-1]);
 
 	#ifdef VERB
 	fprintf(stderr,"\n\tCheck: Npart=%ld, mpart=%e, Lbox=%f\n",Npart,mpart,Lbox);
@@ -215,7 +199,7 @@ int main(int argc, char **argv){
 
 	//Generate the halo masses from the mass function
 	fprintf(stderr,"Generating Halo Masses...\n");
-	Nhalos = populate_mass_function(MassFunctionFile,Mmin,Lbox,&HaloMass,seed,160);
+	Nhalos = populate_mass_function(MassFunctionFile,Mmin,Lbox,&HaloMass,seed,nthreads);
 	if (Nhalos<0){
 		fprintf(stderr,"error: Couldnt create HaloMass array\n");	
 		return -1;
@@ -224,8 +208,7 @@ int main(int argc, char **argv){
 
 	// GET THE ACTUAL NUMBER OF R VALUES IN CORR (LINEARLY SPACED)
 	dr = (maxr - minr) / nr;
-	total_nr = (int) ceil(maxr / dr) + 2;
-	maxr += 2* dr;
+	total_nr = (int) ceil(maxr / dr);
 
 	//density at the boundary of a halo
 	if (strcmp(rho_ref,"crit")==0)
@@ -240,8 +223,7 @@ int main(int argc, char **argv){
 #endif
 	Nalpha = get_mass_bins(HaloMass,Nhalos,Nmax,Nmin);
 #ifdef VERB
-	fprintf(stderr,"... generated mass bins\n");
-	fprintf(stderr,"Nmin=%d, Nmax=%d, Nmassbins=%d (=Nalphas).\n",Nmin,Nmax,Nalpha);
+	fprintf(stderr,"... generated mass bins.\n");
 	fprintf(stderr,"Getting NBODY 2PCF...\n");
 #endif
 	
@@ -252,7 +234,7 @@ int main(int argc, char **argv){
 
 	// Import the Nbody halos
 	nb_n = read_nbody(&nbx,&nby,&nbz,&nbm);
-	fprintf(stderr,"READ IT IN\n");
+	printf("READ IT IN\n");
 	// Get the Nbody 2PCF
 	get_nbody_2pcf(nbx,nby,nbz,nbm,nb_n);
 
@@ -262,7 +244,7 @@ int main(int argc, char **argv){
 	free(nbm);
 
 	// DO THE FIT
-	if(find_best_alpha(dens)==0)
+	if(find_best_alpha(MassLeft,dens)==0)
 		fprintf(stderr, "... done fitting.\n");
 	else {
 		fprintf(stderr,"Problem fitting\n");
@@ -280,27 +262,28 @@ int main(int argc, char **argv){
 	// Do a final placement with the correct alphavec
 	place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, x,y,z,Lbox,
 				rho,seed,
-				mpart,nthreads, alphavec, betavec, mcuts, Nalpha, recalc_frac,hx, hy, hz,
-				hx,hy,hz, hR,ListOfParticles,NPartPerCell,dens);
+				mpart,nthreads, alphavec, betavec, mcuts, Nalpha, Nrecalc,hx, hy, hz,
+				hx,hy,hz, hR,ListOfParticles,NPartPerCell,MassLeft,dens);
 		
 	// ALLOCATE the halogen_2pcf array
 	halogen_2pcf = (double **) calloc(Nalpha,sizeof(double *));
 	halogen_err = (double **) calloc(Nalpha,sizeof(double *));
-
 	nend = 0;
-	dd = (unsigned long long *) calloc(total_nr,sizeof(unsigned long long));
 	for(ii=0;ii<Nalpha;ii++){
 		(halogen_2pcf)[ii] = (double *) calloc(total_nr,sizeof(double));
 		(halogen_err)[ii] = (double *) calloc(total_nr,sizeof(double));
-		while(HaloMass[nend]>mcuts[ii] && nend<Nhalos){
+		while(nbm[nend]>mcuts[ii] && nend<Nhalos){
 			nend++;
 		}
 		if(nend==Nhalos){
-			fprintf(stderr,"ERROR: HALOMASSES DON'T REACH MALPHA_MIN\n");
+			fprintf(stderr,"ERROR: NBODY MASSES DON'T REACH MALPHA_MIN\n");
 			return -1;
 		}
+
+		dd = (unsigned long long *) calloc(total_nr,sizeof(unsigned long long));
 		// Do the correlation
-		correlate(nend, Lbox,hx,hy,hz,halogen_2pcf[ii],halogen_err[ii], dd,total_nr,maxr,160);
+		correlate(nend, Lbox,hx,hy,hz,halogen_2pcf[ii], halogen_err[ii], dd,total_nr,maxr,nthreads);
+
 	}
 
 	// OUTPUT
@@ -317,39 +300,35 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	fprintf(stderr,"OPENED TPC AND ERR\n");
 	for(i=0;i<total_nr;i++){
 		fprintf(tpcfile,"%e\t",(i+0.5)*dr);
 		fprintf(errfile,"%e\t",(i+0.5)*dr);
-		for(j=0;j<Nalpha;j++){
+		for(j=0;Nalpha;j++){
 			fprintf(tpcfile,"%e\t",halogen_2pcf[j][i]);
 			fprintf(errfile,"%e\t",halogen_err[j][i]);
 		}
-		fprintf(stderr,"\n");
 		fprintf(tpcfile,"\n");
 		fprintf(errfile,"\n");
 	}
 	fclose(tpcfile);
 	fclose(errfile);
 
-	fprintf(stderr,"outputted tpc and errfile\n");
 	FILE* alphafile;
 	alphafile = fopen(OutputAlphaM,"w");
 	for(i=0;i<Nalpha;i++){
 		fprintf(alphafile,"%e\t%e\t%e\n",mcuts[i],alphavec[i],betavec[i]);
 	}
 	fclose(alphafile);
-	for(ii=0;ii<Nalpha;ii++){
-		free((halogen_2pcf)[ii]);
-		free((halogen_err)[ii]);
-	}
-	free(halogen_2pcf);
-	free(halogen_err);
-	free(dd);	
-	free(hx);	
-	free(hy);	
-	free(hz);	
-	free(hR);	
+
+
+		
+	//writting output	
+//	fprintf(stderr,"Writing Halo catalogue...\n");
+//	write_halogen_cat(OutputFile,hx,hy,hz,hvx,hvy,hvz,HaloMass,hR,Nhalos);
+//	fprintf(stderr,"...halo catalogue written in %s\n",OutputFile);
+	
+//	free(hx);free(hy);free(hz);free(hR);
+//	free(alpha); free(Malpha);
 
 
 	fprintf(stderr,"\n*******************************************************************\n");
@@ -373,16 +352,7 @@ int get_mass_bins(float *HaloMass, long Nhalos, int Nmax, int Nmin){
 	int i,nbins=0;
 	float dm;
 	float thiscutoff = 0.0;
-
-	if (Nmax==0 && Nmin==0){
-		fprintf(stderr,"Using a single alpha\n");
-		mcuts = (double *) malloc(1*sizeof(double));
-		ncuts = (int *) malloc(1*sizeof(int));
-		mcuts[0] = HaloMass[Nhalos-1];
-		ncuts[0] = Nhalos;
-		return 1;
-	}
-		
+	
 	// First count how many bins there needs to be
 #ifdef VERB
 	fprintf(stderr,"\tCounting number of bins: ");
@@ -400,7 +370,10 @@ int get_mass_bins(float *HaloMass, long Nhalos, int Nmax, int Nmin){
 		halos_used += Nmin*i;
 	}
 
-
+#ifdef VERB
+	fprintf(stderr, "%d\n",nbins);
+	fprintf(stderr,"\tAllocating memory\n");
+#endif
 	// Allocate memory
 	mcuts = (double *) malloc(nbins*sizeof(double));
 	ncuts = (int *) malloc(nbins*sizeof(int));
@@ -484,23 +457,13 @@ long read_nbody(float **nbx, float **nby, float **nbz, float **nbm){
 
 	float a,b,c,d;
 	char line[1000];
-
 	for(ii=0;ii<n_nb;ii++){
 		//fscanf(nbodyf,"%f%f%f%f",&((*nbx)[ii]),&((*nby)[ii]),&((*nbz)[ii]),&((*nbm)[ii]));
 		fgets(line,LINELENGTH,nbodyf);
 		sscanf(line,"%f %f %f %f",&a,&b,&c,&d);
-		if (a==Lbox)
-			a=0.;
 		(*nbx)[ii]=a;
-
-		if (b==Lbox)
-			b=0.;
 		(*nby)[ii]=b;
-
-		if (c==Lbox)
-			c=0.;
 		(*nbz)[ii]=c;
-
 		(*nbm)[ii]=d;
 		
 	}
@@ -527,7 +490,7 @@ int get_nbody_2pcf(float *nbx, float *nby, float *nbz, float *nbm, long n_nb){
 		if(nbz[ii]>nbody_lbox) nbody_lbox = nbz[ii];
 	}
 	nbody_lbox = (float) ceil(nbody_lbox);
-	
+
 	fprintf(stderr,"BOXSIZE OF NBODY: %e\n", nbody_lbox);
 	fprintf(stderr,"HALOS in NBODY: %ld\n",n_nb);
 
@@ -540,10 +503,9 @@ int get_nbody_2pcf(float *nbx, float *nby, float *nbz, float *nbm, long n_nb){
 		nbody_2pcf[ii] = (double *) calloc(total_nr,sizeof(double));
 		fprintf(stderr,"    allocated %d ",total_nr);
 //		fprintf(stderr,"\tNend=%ld\n",nend);
-		fprintf(stderr,"M[first]=%e \n",nbm[0]);
+		fprintf(stderr,"M[first]=%f \n",nbm[0]);
 //		fprintf(stderr,"M[last]=%e \n",nbm[n_nb-1]);
 //		fprintf(stderr,"\tnbm=%e\n",nbm[nend]);
-		#ifdef MASS_CUTS_FIT
 		while(nbm[nend]>mcuts[ii]){
 			nend++;
 			if(nend==n_nb){
@@ -552,13 +514,9 @@ int get_nbody_2pcf(float *nbx, float *nby, float *nbz, float *nbm, long n_nb){
 			}
 		//	fprintf(stderr,"\n-%ld\n",nend);
 		}
-		#else
-		nend+=ncuts[ii];
-		#endif
-		fprintf(stderr,"\tNend=%ld  nbm=%e\n",nend,nbm[nend]);
+//		fprintf(stderr,"\tNend=%ld  nbm=%e\n\n",nend,nbm[nend]);
 		// Do the correlation
-		correlate(nend, nbody_lbox,nbx,nby,nbz,nbody_2pcf[ii],ercor,dd,total_nr,maxr,160);
-		fprintf(stderr,"\tCorrelated\n\n");
+		correlate(nend, nbody_lbox,nbx,nby,nbz,nbody_2pcf[ii],ercor,dd,total_nr,maxr,nthreads);
 	}
 
 	// OUTPUT
@@ -584,29 +542,30 @@ int get_nbody_2pcf(float *nbx, float *nby, float *nbz, float *nbm, long n_nb){
 /*=============================================================================
  *                              FITTING CODE
  *=============================================================================*/
-int find_best_alpha(float *dens){
+int find_best_alpha(double *MassLeft, float *dens){
 	
 	//double alpha_2pcf[num_alpha][nr], trials_2pcf[num_alpha][ntrials][total_nr], alpha_err[num_alpha][nr];
 	double **alpha_2pcf, ***trials_2pcf, **alpha_err;
 	double low, high, da;
 	long i,nend,k,j,ir,jk;
 
-	double chi2;
-
+	double *ercorr, chi2;
+	unsigned long long *DD;
 	double yi,yerr,xi,minerr;
 	int nbreak, iii,ind,min_ind,max_ind;
 
 	long thisseed[Nalpha*num_alpha*ntrials];
 	char Output2PCF[LINELENGTH];
 	char ThisFile[15];
-
+	//double *RemMass;
 
 	ncoeffs = num_alpha-1;
 	nbreak =ncoeffs-2;
 	// Allocate alphavec, which is our result
 	alphavec = (double *) calloc(Nalpha,sizeof(double));
 	betavec = (double *) calloc(Nalpha,sizeof(double));
-
+	DD = (unsigned long long *) calloc(total_nr,sizeof(unsigned long long));
+	ercorr = (double *) calloc(total_nr,sizeof(double));
 	for (i=0;i<Nalpha;i++){
 		betavec[i] = beta;
 	}
@@ -643,8 +602,8 @@ int find_best_alpha(float *dens){
 	for (i=0;i<Nalpha;i++){
 		for(j=0;j<num_alpha;j++){
 			for(k=0;k<ntrials;k++){
-				thisseed[iii] = seed + iii;
 				iii++;
+				thisseed[iii] = seed + iii;
 			}
 		}
 	}
@@ -674,7 +633,7 @@ int find_best_alpha(float *dens){
 			memcpy(thisalphavec,alphavec,Nalpha*sizeof(float));
 			thisalphavec[i] = gsl_vector_get(alpha_grid,j);
 			
-        	#pragma omp parallel for private(k,thisalphavec,ir,hx,hy,hz,hR,trials_2pcf) \
+        	#pragma omp parallel for private(k,thisalphavec,ir,hx,hy,hz,hR,MassLeft,trials_2pcf) \
         	shared(j,num_alpha,ntrials,i,stderr,Nalpha,iii,mcuts,dens,ListOfParticles,NPartPerCell,x,y,z,Lbox,Npart,Nlin,\
         			HaloMass,nend,seed,mpart,Nrecalc,ercorr,DD,rho) default(none)
 			for(k=0;k<ntrials;k++){
@@ -689,7 +648,7 @@ int find_best_alpha(float *dens){
 				place_halos(nend,HaloMass, Nlin, Npart, x, y, z, x,y,z,Lbox,
 						rho,seed[k + j*ntrials + i*ntrials*num_alpha  +1],
 						mpart, thisalphavec, mcuts, Nalpha, Nrecalc,hx, hy, hz,
-						hx,hy,hz, hR,ListOfParticles,NPartPerCell,,dens);
+						hx,hy,hz, hR,ListOfParticles,NPartPerCell,MassLeft,dens);
 				
 				// Get the 2PCF
 				// result should go into trials_2pcf[k][:]
@@ -727,73 +686,61 @@ int find_best_alpha(float *dens){
 		*/
 
 		fprintf(stderr,"STARTING THREADS\n");
-	#ifndef NO_PAR_FIT
 		#pragma omp parallel for  num_threads(nthreads) private(jk,j,k) \
 		shared(num_alpha,ntrials,i,alpha_grid,low,da,stderr,Nalpha,alphavec,iii,mcuts,dens,ListOfParticles,\
-		NPartPerCell,x,y,z,Lbox,Npart,Nlin,HaloMass,nend,mpart,recalc_frac,betavec,thisseed,trials_2pcf,rho,maxr,\
-		total_nr,Nhalos) default(none)
-	#endif
+		NPartPerCell,x,y,z,Lbox,Npart,Nlin,HaloMass,nend,mpart,Nrecalc,ercorr,DD,betavec,thisseed,trials_2pcf,rho,maxr,\
+		total_nr,MassLeft,Nhalos) default(none)
 		for(jk=0;jk<num_alpha*ntrials;jk++){
-  			fprintf(stderr,"Thread %d/%d\n",omp_get_thread_num(),omp_get_num_threads());
-			
 			float *hx,*hy,*hz,*hR;			
 			double *thisalphavec;
-			double *ercorr;
-			unsigned long long *DD;
+			double *RemMass;
 			hx = (float *) calloc(Nhalos,sizeof(float));
 			hy = (float *) calloc(Nhalos,sizeof(float));
 			hz = (float *) calloc(Nhalos,sizeof(float));
 			hR = (float *) calloc(Nhalos,sizeof(float));
-			thisalphavec = (double *) calloc(Nalpha,sizeof(double));
-			DD = (unsigned long long *) calloc(total_nr,sizeof(unsigned long long));
-			ercorr = (double *) calloc(total_nr,sizeof(double));
+			thisalphavec = (double *) calloc(Nalpha,sizeof(float));
 
 			k=jk%ntrials;
 			j=jk/ntrials;
 
+
+
+			// copy the MassLeft array into RemMass
+			RemMass = (double *)malloc(Nlin*Nlin*Nlin*sizeof(double));
+			if (RemMass==NULL){
+				fprintf(stderr,"ERROR: couldnt allocate space for RemMass\n");
+			}
+			fprintf(stderr,"MADE SPACE\n");
+			memcpy(RemMass,MassLeft,Nlin*Nlin*Nlin*sizeof(double));
+
 			fprintf(stderr,"MOVED MEMORY\n");
-			fprintf(stderr,"GOT k,j: %ld, %ld\n",k,j);
+			fprintf(stderr,"GOT k,j: %ld, %ld. M[0]=%e\n", k,j,MassLeft[0]);
 			
+			fprintf(stderr,"GOT k,j: %ld, %ld.\n", k,j);
 			fprintf(stderr,"sizeof M : %f MB\n",(Nlin*Nlin*Nlin*sizeof(double)/1024./1024.));
 			//define the alpha grid for this mass bin
-			gsl_vector_set(alpha_grid,j,low+j*da);
+			gsl_vector_set(alpha_grid, j, low+j*da);
 			
 
 			// create a local alphavec, to which we add the current gridded alpha
-			int itemp;
-			for (itemp=0;itemp<Nalpha;itemp++)
-				thisalphavec[itemp] = alphavec[itemp];
-
-
+			memcpy(thisalphavec,alphavec,Nalpha*sizeof(float));
 			//fprintf(stderr,"mem copied\n");
 			thisalphavec[i] = gsl_vector_get(alpha_grid,j);
 
 			// Place the halos
-
-			#ifdef NO_PAR_FIT
 			place_halos(nend,HaloMass, Nlin, Npart, x, y, z, x,y,z,Lbox,
 					rho,thisseed[jk+i*num_alpha*ntrials],
-					mpart,nthreads,thisalphavec, betavec, mcuts, Nalpha, recalc_frac,hx, hy, hz,
-					hx,hy,hz,hR,ListOfParticles,NPartPerCell,dens);
-			#else 
-			place_halos(nend,HaloMass, Nlin, Npart, x, y, z, x,y,z,Lbox,
-					rho,thisseed[jk+i*num_alpha*ntrials],
-					mpart,1,thisalphavec, betavec, mcuts, Nalpha, recalc_frac,hx, hy, hz,
-					hx,hy,hz,hR,ListOfParticles,NPartPerCell,dens);
-
-			#endif			
-			fprintf(stderr,"correlating...\n");
+					mpart,1,thisalphavec, betavec, mcuts, Nalpha, Nrecalc,hx, hy, hz,
+					hx,hy,hz,hR,ListOfParticles,NPartPerCell,RemMass,dens);
+			
 			//Get the 2PCF
 			correlate(nend, Lbox,hx,hy,hz,trials_2pcf[j][k], ercorr, DD,total_nr,maxr,1);
-			fprintf(stderr,"...correlated\n");
-			
 			free(hx);
 			free(hy);
 			free(hz);
 			free(hR);
 			free(thisalphavec);
-			free(ercorr);
-			free(DD);
+			free(RemMass);
 
 		}
 
@@ -811,23 +758,18 @@ int find_best_alpha(float *dens){
 			for (ir=0;ir<nr;ir++){
 				alpha_2pcf[j][ir] = 0.0;
 				for(k=0;k<ntrials;k++){
-					alpha_2pcf[j][ir] += trials_2pcf[j][k][ir+total_nr-nr-2];
+					alpha_2pcf[j][ir] += trials_2pcf[j][k][ir+total_nr-nr];
 				}
 				alpha_2pcf[j][ir] = alpha_2pcf[j][ir]/ntrials; 
 				alpha_err[j][ir] = 0.0;
 				for(k=0;k<ntrials;k++){
-					alpha_err[j][ir] += pow((trials_2pcf[j][k][ir+total_nr-nr-2]-alpha_2pcf[j][ir]),2);
+					alpha_err[j][ir] += pow((trials_2pcf[j][k][ir+total_nr-nr]-alpha_2pcf[j][ir]),2);
 				}
 				alpha_err[j][ir] = pow((alpha_err[j][ir]/(ntrials-1)),0.5);
 
 				// Now get chi^2 values
-				#ifdef REL_CHI2
-				chi2 += pow(((alpha_2pcf[j][ir]-nbody_2pcf[i][ir+total_nr-nr-2])/nbody_2pcf[i][ir+total_nr-nr-2]),2);
-				#else
-				chi2 += pow(((alpha_2pcf[j][ir]-nbody_2pcf[i][ir+total_nr-nr-2])/alpha_err[j][ir]),2);
-				#endif
-
-				fprintf(stderr,"%ld, %ld, %e, %e, %e, %e\n",j,ir,alpha_2pcf[j][ir],nbody_2pcf[i][ir+total_nr-nr-2],alpha_err[j][ir],chi2);
+				chi2 += pow(((alpha_2pcf[j][ir]-nbody_2pcf[i][ir+total_nr-nr])/alpha_err[j][ir]),2);
+				fprintf(stderr,"%ld, %ld, %e, %e, %e, %e\n",j,ir,alpha_2pcf[j][ir],nbody_2pcf[i][ir+total_nr-nr],alpha_err[j][ir],chi2);
 			}
 			gsl_vector_set(chi2_alpha,j,chi2/nr);
 			gsl_vector_set(weights,j,nr/chi2);
@@ -951,6 +893,30 @@ int find_best_alpha(float *dens){
 			fprintf(stderr,"%e\t%e\t\n",gsl_vector_get(alpha_grid,k),
 					gsl_vector_get(chi2_alpha,k));
 		}
+/*
+		fprintf(stderr,"c: \n");
+		for(k=0;k<ncoeffs;k++){
+			fprintf(stderr,"%e, ",gsl_vector_get(c,k));
+		}
+		fprintf(stderr,"\n");
+	
+		fprintf(stderr,"X: \n");
+		for (k=0;k<num_alpha;k++){
+			for(j=0;j<ncoeffs;j++){
+				fprintf(stderr,"%e, ",gsl_matrix_get(X,k,j));
+			}
+			fprintf(stderr,"\n");
+		}
+
+		fprintf(stderr,"X: \n");
+		for (k=0;k<ncoeffs;k++){
+			for(j=0;j<ncoeffs;j++){
+				fprintf(stderr,"%e, ",gsl_matrix_get(cov,k,j));
+			}
+			fprintf(stderr,"\n");
+		}
+
+	*/
 
 #ifdef VERB
 		dof = num_alpha - ncoeffs;
@@ -969,8 +935,6 @@ int find_best_alpha(float *dens){
 		alphavec[i] = minimize(gsl_vector_get(alpha_grid,min_ind), gsl_vector_get(alpha_grid,max_ind),
 									   gsl_vector_get(alpha_grid,ind));
 		best_alpha = alphavec[i];
-
-		fprintf(stderr,"\n Best alpha: %f\n\n",best_alpha);
 	}
 
 	return 0;
@@ -1270,13 +1234,13 @@ int read_input_file(char *name){
 					ParameterSet[i]++;
 					break;
 				case 14:
-					sscanf(line,"%s %lf",word,&recalc_frac);
+					sscanf(line,"%s %d",word,&Nrecalc);
 					if (ParameterSet[i]>0)
 						fprintf(stderr,"WARNING: Parameter %s set more than once\n",word);
 					else
 						NParametersSet++;
 					#ifdef VERB
-					fprintf(stderr,"\t%s: %lf\n",word,recalc_frac);
+					fprintf(stderr,"\t%s: %d\n",word,Nrecalc);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -1287,7 +1251,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB
-					fprintf(stderr,"\t%s: %f\n",word,Dmax);
+					fprintf(stderr,"\t%s: %d\n",word,Nmax);
 					#endif
 					ParameterSet[i]++;
 					break;
@@ -1298,7 +1262,7 @@ int read_input_file(char *name){
 					else
 						NParametersSet++;
 					#ifdef VERB
-					fprintf(stderr,"\t%s: %f\n",word,Dmin);
+					fprintf(stderr,"\t%s: %d\n",word,Nmin);
 					#endif
 					ParameterSet[i]++;
 					break;
