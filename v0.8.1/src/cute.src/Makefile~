@@ -1,0 +1,35 @@
+
+include ../../Makefile.defs
+
+# COMPILER AND OPTIONS
+COMPCPU = gcc
+OPTCPU = -Wall -O3 -fopenmp -g
+
+#INCLUDES AND LIBRARIES
+#INCLUDECOM = -I./src
+LIBCPU = -lm
+
+#.o FILES
+#CUTE
+DEF = define.o
+COM = common.o
+IO = io.o
+NEIGH = neighbors.o
+CORR = correlator.o
+
+OFILES = $(DEF) $(COM) $(IO) $(NEIGH) $(CORR) #$(MAIN)
+
+#RULES
+cute : $(OFILES)
+
+#RULE TO MAKE .o's FROM .c's
+$(DEF) : define.c
+	$(COMPCPU) $(OPTCPU) $(LIBCPU) -c $< -o $@ #$(INCLUDECOM)
+$(COM) : common.c
+	$(COMPCPU) $(OPTCPU) $(LIBCPU) -c $< -o $@ #$(INCLUDECOM)
+$(CORR) : correlator.c
+	$(COMPCPU) $(OPTCPU) $(LIBCPU) -c $< -o $@ #$(INCLUDECOM)
+$(IO) : io.c
+	$(COMPCPU) $(OPTCPU) $(LIBCPU) -c $< -o $@ #$(INCLUDECOM)
+$(NEIGH) : neighbors.c
+	$(COMPCPU) $(OPTCPU) $(LIBCPU) -c $< -o $@ #$(INCLUDECOM)

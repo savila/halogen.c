@@ -1,0 +1,34 @@
+#******** HALOGEN-2LPT input file *******#
+
+
+#Full path to the tabulated cumulative density function n(>M). Format: M[M_sun/h] n[(h/Mpc)^3]
+MassFunctionFile	input/Watson_FOF
+
+#Full Path to the output
+OutputFile	output/BigMD_FOF_l4_Pk_trans_n1.halos
+
+#Number of Cells per side of the grid used (lcell=Lbox/NCellsLin)
+NCellsLin	625
+
+#Full path to the tabulated alpha(Mass) relation. Format: alpha M[M_sun/h]
+alphaFile       fit_output/BigMD_FOF_l4/M-alpha.txt
+
+#Reference densisty: choose "crit" for rho_critical or "matter" for rho_matter
+rho_ref		crit
+
+#Density at which the edge of the halo is defined in units of rho_ref
+Overdensity	200
+
+#Minimum halo mass in units of M_sun/h
+#Mmin		8.75e12
+Mmin		3.5e-4
+
+#Random seed. If negative, synchronized with time.
+Seed 		-1
+
+#Relative error allowed in CumulativeProb
+recalc_frac	1.0
+
+#number of OMP threads
+nthreads	16
+
