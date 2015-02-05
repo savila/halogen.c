@@ -83,7 +83,7 @@ int main(int argc, char **argv){
 
 	float Lbox, mpart, *x, *y, *z, *vx,*vy,*vz,*hx, *hy, *hz, *hvx,*hvy,*hvz,*hR, om_m;	
 	char inname[256];
-	long Npart, Nhalos, **ListOfParticles, *NPartPerCell;
+	unsigned long long Npart, Nhalos, **ListOfParticles, *NPartPerCell;
 	float *HaloMass, rho;
 
 	float *dens;

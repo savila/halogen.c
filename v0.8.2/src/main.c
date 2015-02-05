@@ -25,7 +25,7 @@ int ParameterSet[NParam];
 int NParametersSet;
 long seed;
 int nthreads;
-	
+
 char ParameterList[NParam][32] = {"MassFunctionFile",
                 "OutputFile","NCellsLin","alphaFile","rho_ref","Overdensity","Mmin",
                 "Seed","recalc_frac",
@@ -67,12 +67,12 @@ int write_halogen_cat(char *, float *, float *, float *, float *, float *, float
    if(cond)                                                                                                   \
     {                                                                                                         \
       if(ThisTask == 0)                                                                                       \
-	printf("\nallocated %g Mbyte on Task %d\n", bytes / (1024.0 * 1024.0), ThisTask);                     \
+	fprintf(stderr,"\tallocated %g Mbyte on Task %d\n", bytes / (1024.0 * 1024.0), ThisTask);                     \
     }                                                                                                         \
   else                                                                                                        \
     {                                                                                                         \
-      printf("failed to allocate %g Mbyte on Task %d\n", bytes / (1024.0 * 1024.0), ThisTask);                \
-      printf("bailing out.\n");                                                                               \
+      fprintf(stderr,"failed to allocate %g Mbyte on Task %d\n", bytes / (1024.0 * 1024.0), ThisTask);                \
+      fprintf(stderr,"bailing out.\n");                                                                               \
       FatalError(1);                                                                                          \
     }                                                                                                         \
 }
@@ -83,111 +83,129 @@ int write_halogen_cat(char *, float *, float *, float *, float *, float *, float
 
 int main(int argc, char **argv) {
 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+  	MPI_Init(&argc, &argv);
+  	MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+  	MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-  if(argc < 3)
-    {
-      if(ThisTask == 0)
-	{
-	  fprintf(stdout, "\nParameters are missing.\n");
-	  fprintf(stdout, "Usage: %s <2LPTParameterFile> <Halogen_input_file>\n\n",argv[0]);
-	}
-      MPI_Finalize();
-      exit(0);
-    }
-
-  read_parameterfile(argv[1]);
-
-  set_units();
-
-  initialize_powerspectrum();
-
-  initialize_ffts();
-
-  read_glass(GlassFile);
-
-  displacement_fields();
-
- // write_particle_data();
- //done with 2LPT, halogen starting
- 
-
-
-
-
-  if(ThisTask == 0) 
-  {
-       fprintf(stderr,"\n*******************************************************************\n");
-        fprintf(stderr,"**                                                               **\n");
-        fprintf(stderr,"**            =          HALOGEN v1.0           =                **\n");
-        fprintf(stderr,"**                                                               **\n");
-        fprintf(stderr,"**                                                               **\n");
-        fprintf(stderr,"**                                            let there be dark  **\n");
-        fprintf(stderr,"*******************************************************************\n\n");
-  }
-
-        float Lbox, mpart, *x, *y, *z, *vx,*vy,*vz,*hx, *hy, *hz, *hvx,*hvy,*hvz,*hR, om_m;
-        char inname[256];
+  	float Lbox, mpart, *x, *y, *z, *vx,*vy,*vz,*hx, *hy, *hz, *hvx,*hvy,*hvz,*hR, om_m;
+        char tlpt_filename[256],halogen_filename[256];
         long Npart, Nhalos, **ListOfParticles, *NPartPerCell;
         float *HaloMass, rho;
 
         float *dens;
         int number_exclusion=0;
 
-        strcpy(inname,argv[2]);
 
-#ifdef VERB
-        fprintf(stderr,"#def VERB\n");
-#endif
-#ifdef DEBUG
-        fprintf(stderr,"#def DEBUG \n");
-#endif
-#ifdef ULTRADEBUG
-        fprintf(stderr,"#def ULTRADEBUG \n");
-#endif
-#ifdef FULL_EXCLUSION
-        fprintf(stderr,"#def FULL_EXCLUSION\n");
+  	if(ThisTask == 0) 
+  	{
+       		fprintf(stderr,"\n*******************************************************************\n");
+        	fprintf(stderr,"**                                                               **\n");
+        	fprintf(stderr,"**            =        HALOGEN-2LPT v1.0         =               **\n");
+        	fprintf(stderr,"**                                                               **\n");
+        	fprintf(stderr,"**                                                               **\n");
+        	fprintf(stderr,"**                                            let there be dark  **\n");
+        	fprintf(stderr,"*******************************************************************\n\n");
+		#ifdef VERB
+        	fprintf(stderr,"#def VERB\n");
+		#endif
+		#ifdef DEBUG
+        	fprintf(stderr,"#def DEBUG \n");
+		#endif
+		#ifdef ULTRADEBUG
+        	fprintf(stderr,"#def ULTRADEBUG \n");
+		#endif
+		#ifdef FULL_EXCLUSION
+        	fprintf(stderr,"#def FULL_EXCLUSION\n");
+		#endif
+		#ifdef HALF_EXCLUSION
+        	fprintf(stderr,"#def HALF_EXCLUSION\n");
+		#endif
+		#ifdef NO_EXCLUSION
+	        fprintf(stderr,"#def NO_EXCLUSION\n");
+		#endif
+		#ifdef RANKED
+        	fprintf(stderr,"#def RANKED\n");
+		#endif
+		#ifdef NDENS
+	        fprintf(stderr,"#def NDENS\n");
+		#endif
+	//FLAGS to be unified
+  	}
+
+	#ifdef FULL_EXCLUSION
         number_exclusion++;
-#endif
-#ifdef HALF_EXCLUSION
-        fprintf(stderr,"#def HALF_EXCLUSION\n");
+	#endif
+	#ifdef HALF_EXCLUSION
+	number_exclusion++;
+	#endif
+	#ifdef NO_EXCLUSION
         number_exclusion++;
-#endif
-#ifdef NO_EXCLUSION
-        fprintf(stderr,"#def NO_EXCLUSION\n");
-        number_exclusion++;
-#endif
-if (number_exclusion!=1){
-        fprintf(stderr,"ERROR: You must select one and only one exclusion criterion in Makefile.def\n");
-        exit(0);
-}
-#ifdef RANKED
-        fprintf(stderr,"#def RANKED\n");
-#endif
-#ifdef NDENS
-        fprintf(stderr,"#def NDENS\n");
-#endif
+	#endif
 
+	if (number_exclusion!=1){
+      		if(ThisTask == 0)
+        		fprintf(stderr,"ERROR: You must select one and only one exclusion criterion in Makefile.def\n");
+        		fprintf(stderr,"Task %d, number of exclusion criterion:%d \n",ThisTask,number_exclusion);
+  			MPI_Finalize();		/* clean up & finalize MPI */
+        		exit(0);
+	}
 
-        fprintf(stderr,"\nReading input file...\n");
-        if (read_input_file(inname)<0)
-                return -1;
-        fprintf(stderr,"... file read correctly!\n");
+  	if(argc < 3)
+    	{
+      		if(ThisTask == 0)
+		{
+	  		fprintf(stdout, "\nParameters are missing.\n");
+	  		fprintf(stdout, "Usage: %s <2LPTParameterFile> <Halogen_input_file>\n\n",argv[0]);
+		}
+      		MPI_Finalize();
+      		exit(0);
+    	}
+        strcpy(tlpt_filename,argv[1]);
+        strcpy(halogen_filename,argv[2]);
 
+	if(ThisTask == 0) fprintf(stderr,"\nReading 2LPT input file...\n");
+	read_parameterfile(tlpt_filename);
+	if(ThisTask == 0) fprintf(stderr,"...2LPT input file read\n\n");
+        
 
-        fprintf(stderr,"Reading Gadget file(s)... (Nlin=%d)\n",Nlin);
-        if (distribute_part(Nlin,nthreads,&x, &y, &z, &vx, &vy, &vz, &Npart, &Lbox, &om_m,&ListOfParticles,&NPartPerCell)==0)
-                fprintf(stderr,"Gadget file(s) correctly read!\n");
+	if(ThisTask == 0) fprintf(stderr,"\nReading HALOGEN input file...\n");
+        if (read_input_file(halogen_filename)<0){
+                MPI_Finalize();
+                exit(0);
+	}
+        if(ThisTask == 0) fprintf(stderr,"... HALOGEN file read correctly!\n\n");
+
+	if(ThisTask == 0) fprintf(stderr,"Initializing 2LPT...\n");
+  	set_units();
+	initialize_powerspectrum();
+  	initialize_ffts();
+  	read_glass(GlassFile);
+	if(ThisTask == 0) fprintf(stderr,"... initialization done!\n\n");
+
+	if(ThisTask == 0) fprintf(stderr,"Computing displacement fields...\n");
+  	displacement_fields();
+	if(ThisTask == 0) fprintf(stderr,"...done with displacement fields\n\n");
+
+//write_particle_data();
+//done with 2LPT, halogen starting
+ 
+        if(ThisTask == 0) fprintf(stderr,"Distributing particles in grid... \n");
+        if (distribute_part(Nlin,nthreads,&x, &y, &z, &vx, &vy, &vz, &Npart, &Lbox, &om_m,&ListOfParticles,&NPartPerCell)==0) {
+                if(ThisTask == 0) 
+			fprintf(stderr,"...particles correctly distributed!\n\n");
+	}
         else {
-                fprintf(stderr,"ERROR: Something went wrong reading the gadget file %s\n",inname);
-                return -1;
+                fprintf(stderr,"ERROR: Something went wrong distributing the particles\n");
+                MPI_Finalize();
+                exit(0);
         }
+
 
   if(ThisTask == 0) 
   {
 	int i,j,k,lin_ijk;	
+	
+  	#ifdef DEBUG
 	for (i=0; i<Nlin;i++)
 	for (j=0; j<Nlin;j++)
 	for (k=0; k<Nlin;k++)	
@@ -199,7 +217,7 @@ if (number_exclusion!=1){
 			fprintf(stderr,"(%f,%f,%f) -> [%d,%d,%d]\n",x[ListOfParticles[lin_ijk][0]],y[ListOfParticles[lin_ijk][0]],z[ListOfParticles[lin_ijk][0]],i,j,k);
 		}
 	}
-
+	#endif
    	mpart = rho_crit * om_m * Lbox*Lbox*Lbox /Npart;
 
         #ifdef VERB
@@ -219,7 +237,7 @@ if (number_exclusion!=1){
         Nhalos = populate_mass_function(MassFunctionFile,Mmin,Lbox,&HaloMass,seed,nthreads);
         if (Nhalos<0)
                 fprintf(stderr,"error: Couldnt create HaloMass array\n");
-        fprintf(stderr,"...Halo Masses Generated\n");
+        fprintf(stderr,"...Halo Masses Generated\n\n");
 
         //Allocalte memory for the halo XYZR vector
         hx = (float *) calloc(Nhalos,sizeof(float));
@@ -250,14 +268,13 @@ if (number_exclusion!=1){
                 }
         }
 
-	fprintf(stderr,"recalc_fact=%f\n",recalc_frac);
-
         if (place_halos(Nhalos,HaloMass, Nlin, Npart, x, y, z, vx,vy,vz,Lbox, rho,seed,mpart, nthreads,alpha_vec, fvel, Malpha, Nalpha,recalc_frac,hx, hy, hz, hvx,hvy,hvz, hR,ListOfParticles,NPartPerCell,dens)==0){
                 fprintf(stderr,"...halos placed correctly\n");
         }
         else {
                 fprintf(stderr,"ERROR: Problem placing halos\n");
-                return -1;
+  		MPI_Finalize();
+		exit(0);
         }
         fprintf(stderr,"\n");
 
@@ -278,33 +295,13 @@ if (number_exclusion!=1){
 
   }
 
-
-
-
   MPI_Barrier(MPI_COMM_WORLD);
-
-
-
-
-
 
   if(NumPart)
     free(P);
 
   free_ffts();
-
-
-  if(ThisTask == 0)
-    {
-      printf("\nIC's generated.\n\n");
-      printf("Initial scale factor = %g\n", InitTime);
-      printf("\n");
-    }
-
   MPI_Barrier(MPI_COMM_WORLD);
-//  print_spec();
-
-
 
   MPI_Finalize();		/* clean up & finalize MPI */
   exit(0);
@@ -343,11 +340,13 @@ void displacement_fields(void)
   double fx, fy, fz, ff, smth;
 #endif
 
+#ifdef VERB
   if(ThisTask == 0)
     {
-      printf("\nstart computing displacement fields...\n");
+      printf("\tstart computing displacement fields...\n");
       fflush(stdout);
     }
+#endif
 
   hubble_a =
     Hubble * sqrt(Omega / pow(InitTime, 3) + (1 - Omega - OmegaLambda) / pow(InitTime, 2) + OmegaLambda);
@@ -358,9 +357,11 @@ void displacement_fields(void)
   vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
   vel_prefac2 /= sqrt(InitTime);
 
+#ifdef VERB
   if(ThisTask == 0)
-    printf("vel_prefac= %g, vel_prefac2= %g,  hubble_a=%g fom=%g \n", vel_prefac, vel_prefac2, 
+    printf("\tvel_prefac= %g, vel_prefac2= %g,  hubble_a=%g fom=%g \n", vel_prefac, vel_prefac2, 
                                                                       hubble_a, F_Omega(InitTime));
+#endif
 
   fac = pow(2 * PI / Box, 1.5);
 
@@ -408,8 +409,9 @@ void displacement_fields(void)
       disp[axes] = (fftw_real *) cdisp[axes];
     }
 
+#ifdef VERB
   ASSERT_ALLOC(cdisp[0] && cdisp[1] && cdisp[2]);
-
+#endif
 
 #if defined(MULTICOMPONENTGLASSFILE) && defined(DIFFERENT_TRANSFER_FUNC)
   for(Type = MinType; Type <= MaxType; Type++)
@@ -417,8 +419,10 @@ void displacement_fields(void)
     {
       if(ThisTask == 0)
 	{
-	  printf("\nstarting axes=%d...\n", axes);
+	#ifdef VERB
+	  printf("\tstarting axes=%d...\n", axes);
 	  fflush(stdout);
+	#endif
 	}
 
       /* first, clean the array */
@@ -573,8 +577,8 @@ void displacement_fields(void)
 
 
       /* At this point, cdisp[axes] contains the complex Zeldovich displacement */
-
-       if(ThisTask == 0) printf("Done Zeldovich.\n");
+     
+       if(ThisTask == 0) printf("\tDone Zeldovich.\n");
       
       /* Compute displacement gradient */
 
@@ -582,7 +586,10 @@ void displacement_fields(void)
 	{
 	  cdigrad[i] = (fftw_complex *) malloc(bytes = sizeof(fftw_real) * TotalSizePlusAdditional);
 	  digrad[i] = (fftw_real *) cdigrad[i];
+
+	  #ifdef DEBUG
 	  ASSERT_ALLOC(cdigrad[i]);
+	  #endif
 	}
       
       for(i = 0; i < Local_nx; i++)
@@ -627,9 +634,9 @@ void displacement_fields(void)
 	    }
 
 
-      if(ThisTask == 0) printf("Fourier transforming displacement gradient...");
+      if(ThisTask == 0) printf(stderr,"\tFourier transforming displacement gradient...\n");
       for(i = 0; i < 6; i++) rfftwnd_mpi(Inverse_plan, 1, digrad[i], Workspace, FFTW_NORMAL_ORDER);
-      if(ThisTask == 0) printf("Done.\n");
+      if(ThisTask == 0) printf(stderr,"\tDone.\n");
 
       /* Compute second order source and store it in digrad[3]*/
 
@@ -645,9 +652,9 @@ void displacement_fields(void)
                 -digrad[1][coord]*digrad[1][coord]-digrad[2][coord]*digrad[2][coord]-digrad[4][coord]*digrad[4][coord];
 	    }
 
-      if(ThisTask == 0) printf("Fourier transforming second order source...");
+      if(ThisTask == 0) fprintf(stderr,"\tFourier transforming second order source...");
       rfftwnd_mpi(Forward_plan, 1, digrad[3], Workspace, FFTW_NORMAL_ORDER);
-      if(ThisTask == 0) printf("Done.\n");
+      if(ThisTask == 0) fprintf(stderr,"\tDone.\n");
       
       /* The memory allocated for cdigrad[0], [1], and [2] will be used for 2nd order displacements */
       /* Freeing the rest. cdigrad[3] still has 2nd order displacement source, free later */
@@ -730,7 +737,7 @@ void displacement_fields(void)
 
       for(axes = 0; axes < 3; axes++)
 	{
-          if(ThisTask == 0) printf("Fourier transforming displacements, axis %d.\n",axes);
+          if(ThisTask == 0) fprintf(stderr,"\tFourier transforming displacements, axis %d.\n",axes);
 
 	  rfftwnd_mpi(Inverse_plan, 1, disp[axes], Workspace, FFTW_NORMAL_ORDER);
 	  rfftwnd_mpi(Inverse_plan, 1, disp2[axes], Workspace, FFTW_NORMAL_ORDER);
@@ -884,7 +891,7 @@ void displacement_fields(void)
 
   if(ThisTask == 0)
     {
-      printf("\nMaximum displacement: %g kpc/h, in units of the part-spacing= %g\n",
+      fprintf(stderr,"\tMaximum displacement: %g kpc/h, in units of the part-spacing= %g\n",
 	     max_disp_glob, max_disp_glob / (Box / Nmesh));
     }
 }
@@ -931,13 +938,14 @@ void initialize_ffts(void)
   Local_nx_table = malloc(sizeof(int) * NTask);
   MPI_Allgather(&Local_nx, 1, MPI_INT, Local_nx_table, 1, MPI_INT, MPI_COMM_WORLD);
 
+#ifdef DEBUG
   if(ThisTask == 0)
     {
       for(i = 0; i < NTask; i++)
-	printf("Task=%d Local_nx=%d\n", i, Local_nx_table[i]);
+	fprintf(stderr,"Task=%d Local_nx=%d\n", i, Local_nx_table[i]);
       fflush(stdout);
     }
-
+#endif
 
   Slab_to_task = malloc(sizeof(int) * Nmesh);
   slab_to_task_local = malloc(sizeof(int) * Nmesh);
@@ -962,7 +970,9 @@ void initialize_ffts(void)
 
   Workspace = (fftw_real *) malloc(bytes = sizeof(fftw_real) * total_size);
 
+  #ifdef DEBUG
   ASSERT_ALLOC(Workspace)
+  #endif
 
   //Cdata = (fftw_complex *) Disp;	/* transformed array */
 }
@@ -1109,7 +1119,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %s\n",word,MassFunctionFile);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %s\n",word,MassFunctionFile);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1121,7 +1131,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %s\n",word,OutputFile);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %s\n",word,OutputFile);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1133,7 +1143,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %d\n",word,Nlin);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %d\n",word,Nlin);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1144,7 +1154,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %s\n",word,alphaFile);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %s\n",word,alphaFile);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1156,7 +1166,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %s\n",word,rho_ref);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %s\n",word,rho_ref);
                                         #endif
                                         if ((strcmp(rho_ref,"crit")!=0) && (strcmp(rho_ref,"matter")!=0)){
                                                         fprintf(stderr,"ERROR: Not valid option for %s: %s.\nPlease select \"crit\" or \"matter\". \n",word,rho_ref);
@@ -1172,7 +1182,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB 
-                                        fprintf(stderr,"\t%s: %f\n",word,OVD);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %f\n",word,OVD);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1187,11 +1197,11 @@ int read_input_file(char *name){
                                                 #ifdef NDENS
                                                 if (Mmin>1)
                                                         fprintf(stderr,"WARNING: This does not seem a number density in [Mpc/h]^{-3}\n");
-                                                fprintf(stderr,"\tNdens: %e.\n",Mmin);
+                                                if(ThisTask == 0) fprintf(stderr,"\tNdens: %e.\n",Mmin);
                                                 #else
                                                 if (Mmin<1e5)
                                                         fprintf(stderr,"WARNING: This does not seem a Mass in [Msun/h]\n");
-                                                fprintf(stderr,"\t%s: %e.\n",word,Mmin);
+                                                if(ThisTask == 0) fprintf(stderr,"\t%s: %e.\n",word,Mmin);
                                                 #endif
                                         #endif
                                         ParameterSet[i]++;
@@ -1204,9 +1214,10 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB
-                                        fprintf(stderr,"\t%s: %ld\n",word,seed);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %ld\n",word,seed);
                                         #endif
                                         ParameterSet[i]++;
+					break;
 
                                 case 8:
                                         sscanf(line,"%s %f",word,&recalc_frac);
@@ -1215,7 +1226,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB
-                                        fprintf(stderr,"\t%s: %f\n",word,recalc_frac);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %f\n",word,recalc_frac);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1226,7 +1237,7 @@ int read_input_file(char *name){
                                         else
                                                 NParametersSet++;
                                         #ifdef VERB
-                                        fprintf(stderr,"\t%s: %d\n",word,nthreads);
+                                        if(ThisTask == 0) fprintf(stderr,"\t%s: %d\n",word,nthreads);
                                         #endif
                                         ParameterSet[i]++;
                                         break;
@@ -1246,6 +1257,10 @@ int read_input_file(char *name){
                 }
                 return -1;
         }
+
+	#ifdef DEBUG
+	fprintf(stderr,"\tNumber of parameters set: %d\n",NParametersSet);
+	#endif
 
         if ((f = fopen(alphaFile,"r"))==NULL){
                 fprintf(stderr,"Could not open input file %s\n",alphaFile);
@@ -1277,7 +1292,6 @@ int read_input_file(char *name){
                 }
         }
         fclose(f);
-
         return 0;
 }
 

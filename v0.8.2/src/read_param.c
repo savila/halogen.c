@@ -35,10 +35,12 @@ void read_parameterfile(char *fname)
   strcpy(tag[nt], "OmegaBaryon");
   addr[nt] = &OmegaBaryon;
   id[nt++] = FLOAT;
-
+/*
   strcpy(tag[nt], "OmegaDM_2ndSpecies");
   addr[nt] = &OmegaDM_2ndSpecies;
   id[nt++] = FLOAT;
+*/
+  OmegaDM_2ndSpecies=0.0;
 
   strcpy(tag[nt], "HubbleParam");
   addr[nt] = &HubbleParam;
@@ -52,9 +54,13 @@ void read_parameterfile(char *fname)
   addr[nt] = &Sigma8;
   id[nt++] = FLOAT;
 
+/*
   strcpy(tag[nt], "PrimordialIndex");
   addr[nt] = &PrimordialIndex;
   id[nt++] = FLOAT;
+*/
+  PrimordialIndex=1;
+
 
   strcpy(tag[nt], "Box");
   addr[nt] = &Box;
@@ -87,11 +93,15 @@ void read_parameterfile(char *fname)
   strcpy(tag[nt], "Seed");
   addr[nt] = &Seed;
   id[nt++] = INT;
-
+/*
   strcpy(tag[nt], "SphereMode");
   addr[nt] = &SphereMode;
   id[nt++] = INT;
+*/
 
+  SphereMode = 0;
+
+/*
   strcpy(tag[nt], "NumFilesWrittenInParallel");
   addr[nt] = &NumFilesWrittenInParallel;
   id[nt++] = INT;
@@ -103,7 +113,7 @@ void read_parameterfile(char *fname)
   strcpy(tag[nt], "FileBase");
   addr[nt] = FileBase;
   id[nt++] = STRING;
-
+*/
   strcpy(tag[nt], "WhichSpectrum");
   addr[nt] = &WhichSpectrum;
   id[nt++] = INT;
@@ -124,6 +134,7 @@ void read_parameterfile(char *fname)
   addr[nt] = &InputSpectrum_UnitLength_in_cm;
   id[nt++] = FLOAT;
 
+/*
   strcpy(tag[nt], "WDM_On");
   addr[nt] = &WDM_On;
   id[nt++] = INT;
@@ -135,7 +146,10 @@ void read_parameterfile(char *fname)
   strcpy(tag[nt], "WDM_PartMass_in_kev");
   addr[nt] = &WDM_PartMass_in_kev;
   id[nt++] = FLOAT;
-
+*/
+  WDM_On=0;
+  
+  
   if((fd = fopen(fname, "r")))
     {
       while(!feof(fd))
@@ -175,9 +189,8 @@ void read_parameterfile(char *fname)
 	  else
 	    {
 	      if(ThisTask == 0)
-		fprintf(stdout, "Error in file %s:   Tag '%s' not allowed or multiple defined.\n", fname,
-			buf1);
-	      errorFlag = 1;
+		fprintf(stderr, "\tError in file %s:   Tag '%s' not allowed or multiple defined.\n",fname,buf1);
+	      	errorFlag = 1;
 	    }
 	}
       fclose(fd);
@@ -186,7 +199,7 @@ void read_parameterfile(char *fname)
   else
     {
       if(ThisTask == 0)
-	fprintf(stdout, "Parameter file %s not found.\n", fname);
+	fprintf(stderr, "\tParameter file %s not found.\n", fname);
       errorFlag = 1;
     }
 
@@ -196,7 +209,7 @@ void read_parameterfile(char *fname)
       if(*tag[i])
 	{
 	  if(ThisTask == 0)
-	    fprintf(stdout, "Error. I miss a value for tag '%s' in parameter file '%s'.\n", tag[i], fname);
+	    fprintf(stderr, "\tError. I miss a value for tag '%s' in parameter file '%s'.\n", tag[i], fname);
 	  errorFlag = 1;
 	}
     }

@@ -1,11 +1,15 @@
+
+# //******   HALOGEN DEFINE OPTIONS ************** //
+
 #Choose one of the three Exclusion criteriom
 #DEFS           +=      -DNO_EXCLUSION			#Haloes can overlap in any way.
 DEFS            +=      -DHALF_EXCLUSION			#Haloes are allowed to overlap. But the center of the small halo cannot be inside the big halo.
 #DEFS            +=      -DFULL_EXCLUSION			#Haloes are not allowed to overlap.
 
-#How to define 
-DEFS		+=	-DNDENS				#Input parameter Mmin is a number density in [Mpc/h]^{-3}.
 
+#How to define number density
+DEFS		+=	-DNDENS				#is set,	input parameter Mmin defines the halo number density in [Mpc/h]^{-3}.
+							#if unset, 	input parameter Mmin defines a mass threshold for the haloes generated
 
 #Verbosity
 DEFS           +=      -DVERB				#Add some comments to cross-check.
@@ -13,18 +17,22 @@ DEFS           +=      -DVERB				#Add some comments to cross-check.
 #DEFS           +=      -DULTRADEBUG			#Add comments in many specific parts. It slows down the process significantly. Use with fewer halos.
 
 
-
-
 #DEFS		+=	-DRANKED			#At each time the most masive halo to place is set in the most massive cell available
 
+#DEFS		+=	-DNO_PROB_PARALLEL		#Probabilities computed in serial
 
-#DEFS		+=	-DNO_PROB_PARALLEL
 
-
-#Flags only for "fit"
-#DEFS		+=	-DREL_CHI2			#chi2=((NB-Hg)/NB)**2
+#*** Flags only for "fit" ***
+#DEFS		+=	-DREL_CHI2			#chi2=((NB-Hlgn)/NB))^2
 #DEFS        +=  -DALLOUT
 #DEFS		+=	-DMASS_CUTS_FIT			#Use mass cuts instead of number cuts for the fit 
 DEFS		+=	-DFITTING -DNO_PROB_PARALEL	#Skip velocities Fit parallel
 #DEFS		+=	-DFITTING -DNO_PAR_FIT		#Skip Vel fit serial
 
+
+
+# //******   OPTIONS FOR 2LPT part ************** //
+
+OPT   +=  -DNO64BITID    # switch this on if you want normal 32-bit IDs
+#OPT   +=  -DCORRECT_CIC  # only switch this on if particles start from a glass (as opposed to grid)
+#OPT += -DONLY_ZA # swith this on if you want ZA initial conditions (2LPT otherwise)

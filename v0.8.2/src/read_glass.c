@@ -23,9 +23,11 @@ void read_glass(char *fname)
 #define SKIP2 {my_fread(&dummy2, sizeof(int), 1, fd);}
 
   if(ThisTask == 0)
-    {
-      printf("\nreading Lagrangian glass file...\n");
+    {	
+      #ifdef VERB
+      printf("\treading Lagrangian glass file...\n");
       fflush(stdout);
+      #endif
 
       numfiles = find_files(fname);
 
@@ -38,7 +40,7 @@ void read_glass(char *fname)
 
 	  if(!(fd = fopen(buf, "r")))
 	    {
-	      printf("can't open file `%s' for reading glass file.\n", buf);
+	      printf("ERROR: can't open file `%s' for reading glass file.\n", buf);
 	      FatalError(1);
 	    }
 
@@ -57,7 +59,9 @@ void read_glass(char *fname)
 	  for(k = 0; k < 6; k++)
 	    nlocal += header1.npart[k];
 
-	  printf("reading '%s' with %d particles\n", fname, nlocal);
+	  #ifdef VERB	
+	  printf("\treading '%s' with %d particles\n", fname, nlocal);
+	  #endif
 
 	  if(num == 0)
 	    {
@@ -66,7 +70,10 @@ void read_glass(char *fname)
 	      for(k = 0; k < 6; k++)
 		Nglass += header1.npartTotal[k];
 
-	      printf("\nNglass= %d\n\n", Nglass);
+	      #ifdef VERB	
+	      fprintf(stderr,"\tNglass= %d\n", Nglass);
+	      #endif
+
 	      pos = (float *) malloc(sizeof(float) * Nglass * 3);
 
 	      if(!(pos))
@@ -162,17 +169,18 @@ void read_glass(char *fname)
 	NTaskWithN++;
     }
 
-
+#ifdef VERB
   if(ThisTask == 0)
     {
       for(i = 0; i < NTask; i++)
-	printf("%d particles on task=%d  (slabs=%d)\n", npart_Task[i], i, Local_nx_table[i]);
+	printf("\t%d particles on task=%d  (slabs=%d)\n", npart_Task[i], i, Local_nx_table[i]);
 
-      printf("\nTotal number of particles  = %d%09d\n\n",
+      printf("\tTotal number of particles  = %d%09d\n",
 	     (int) (TotNumPart / 1000000000), (int) (TotNumPart % 1000000000));
 
       fflush(stdout);
     }
+#endif
 
 
   free(npart_Task);

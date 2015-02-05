@@ -19,8 +19,6 @@ int distribute_part(int Nlin,int nthreads,float **Partx, float **Party, float **
   int i,j,k;
   int *PartPerFile;
   MPI_Status status;
-  if(ThisTask == 0)
-    printf("\nwriting initial conditions... (Nlin=%d)\n",Nlin);
 
 /*
   if((NTask < NumFilesWrittenInParallel))
@@ -36,7 +34,6 @@ int distribute_part(int Nlin,int nthreads,float **Partx, float **Party, float **
   int Nthisfile;
   Nthisfile= (int) NumPart;
   if (ThisTask == 0){
-      fprintf(stderr,"Task 0, A\n");
       PartPerFile = (int*) calloc(NTask,sizeof(int));
       if(!((file_x)=(float **) calloc(NTask, sizeof(float *))))
       {
@@ -68,8 +65,6 @@ int distribute_part(int Nlin,int nthreads,float **Partx, float **Party, float **
         fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
         exit(1);
       }
-      fprintf(stderr,"Task 0, B\n");
-      fprintf(stderr,"Task 0, C\n");
       if(!((file_x[0])=(float *) calloc(Nthisfile, sizeof(float))))
       {
         fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
@@ -100,7 +95,6 @@ int distribute_part(int Nlin,int nthreads,float **Partx, float **Party, float **
         fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
         exit(1);
       }
-      fprintf(stderr,"Task 0, D\n");
      for (i=0;i<NumPart;i++){	
 	//should be overcome
         file_x[0][i]=(float)P[i].Pos[0];
@@ -111,11 +105,9 @@ int distribute_part(int Nlin,int nthreads,float **Partx, float **Party, float **
         file_vz[0][i]=(float)P[i].Vel[2];
 
      }
-      fprintf(stderr,"Task 0, E\n");
   }
 //MPI_Barrier(MPI_COMM_WORLD);
 if (ThisTask!=0) {
-      fprintf(stderr,"Task %d, a\n",ThisTask);
   if(!((thisfile_x)=(float *) calloc(NumPart, sizeof(float ))))
       {
         fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
@@ -146,7 +138,6 @@ if (ThisTask!=0) {
         fprintf(stderr,"\nfailed to allocate memory for GADGET data\n");
         exit(1);
       }
-  fprintf(stderr,"Task %d, b\n",ThisTask);
   for (i=0;i<NumPart;i++){	
 	thisfile_x[i]=(float)P[i].Pos[0];
 	thisfile_y[i]=(float)P[i].Pos[1];
@@ -155,8 +146,9 @@ if (ThisTask!=0) {
 	thisfile_vy[i]=(float)P[i].Vel[1];
 	thisfile_vz[i]=(float)P[i].Vel[2];
   }
-  fprintf(stderr,"Task %d, c\n",ThisTask);
+  #ifdef DEBUG
   fprintf(stderr,"\tTask %d, sending %d particles\n",ThisTask,Nthisfile);
+  #endif
   MPI_Send( &Nthisfile, 1, MPI_INT, 0, 1234, MPI_COMM_WORLD);
   MPI_Send( &thisfile_x[0], Nthisfile, MPI_FLOAT, 0, 1111, MPI_COMM_WORLD);
   MPI_Send( &thisfile_y[0], Nthisfile, MPI_FLOAT, 0, 1112, MPI_COMM_WORLD);
@@ -164,7 +156,9 @@ if (ThisTask!=0) {
   MPI_Send( &thisfile_vx[0], Nthisfile, MPI_FLOAT, 0, 1114, MPI_COMM_WORLD);
   MPI_Send( &thisfile_vy[0], Nthisfile, MPI_FLOAT, 0, 1115, MPI_COMM_WORLD);
   MPI_Send( &thisfile_vz[0], Nthisfile, MPI_FLOAT, 0, 1116, MPI_COMM_WORLD);
+  #ifdef DEBUG
   fprintf(stderr,"\tTask %d, sent Vz[%d]=%f \n",ThisTask,Nthisfile,thisfile_vz[Nthisfile-1]);
+  #endif
   free(thisfile_x);
   free(thisfile_y);
   free(thisfile_z);
@@ -174,14 +168,15 @@ if (ThisTask!=0) {
 }
 //MPI_Barrier(MPI_COMM_WORLD);
   if (ThisTask == 0){
-     fprintf(stderr,"Task 0/%d, D\n", NTask);
      int totN= NumPart;
      PartPerFile[groupTask]=NumPart;
      for(groupTask = 1; groupTask < NTask; groupTask++)
      {
 
 	MPI_Recv(&Nthisfile, 1, MPI_INT, groupTask, 1234, MPI_COMM_WORLD, &status);
+	#ifdef DEBUG
   	fprintf(stderr,"\tTask 0, receiving %d particles from task %d\n",Nthisfile,groupTask);
+	#endif
   	PartPerFile[groupTask]=Nthisfile;
      	totN+=Nthisfile;
 	
@@ -199,7 +194,9 @@ if (ThisTask!=0) {
 	MPI_Recv( &thisfile_vy[0], Nthisfile, MPI_FLOAT, groupTask, 1115, MPI_COMM_WORLD, &status);
 	MPI_Recv( &thisfile_vz[0], Nthisfile, MPI_FLOAT, groupTask, 1116, MPI_COMM_WORLD, &status);
 
+	#ifdef DEBUG
   	fprintf(stderr,"\tTask 0, received Vz[%d]=%f  from task %d\n",Nthisfile,thisfile_vz[Nthisfile-1],groupTask);
+	#endif
 	
       if(!((file_x[groupTask])=(float *) calloc(Nthisfile, sizeof(float))))
       {
@@ -239,7 +236,11 @@ if (ThisTask!=0) {
         file_vy[groupTask][i]=thisfile_vy[i];
         file_vz[groupTask][i]=thisfile_vz[i];
       }
+
+      #ifdef DEBUG
       fprintf(stderr,"Copied vz[%d]=%f\n",i-1,thisfile_vz[i-1]);
+      #endif
+
       free(thisfile_x);
       free(thisfile_y);
       free(thisfile_z);
@@ -276,7 +277,10 @@ if (ThisTask!=0) {
         #endif
         long ipart=0,ii,i_gadget_file,lin_ijk;
         double invL = 1.0/Box;
-	fprintf(stderr,"L=%f, invL=%f, Nlin=%d\n",Box,invL,Nlin);
+
+	#ifdef DEBUG
+	fprintf(stderr,"\tL=%f, invL=%f, Nlin=%d\n",Box,invL,Nlin);
+	#endif
         //Counting Particles in cells
         //t3=time(NULL);
         for(i_gadget_file=0; i_gadget_file<NTask; i_gadget_file++)
@@ -299,7 +303,7 @@ if (ThisTask!=0) {
                 ipart++;
         }
         #ifdef DEBUG
-        fprintf(stderr,"\t Particles Counted \n\n");
+         fprintf(stderr,"\tParticles Counted \n\n");
         #endif
         for (i=0;i<Nlin;i++){
         for (j=0;j<Nlin;j++){
@@ -350,17 +354,9 @@ if (ThisTask!=0) {
                 ipart++;
         }
 
-        #ifdef VERB
-        fprintf(stderr,"\t Particles Distributed \n\n");
-        #endif
    }
 
 MPI_Barrier(MPI_COMM_WORLD);
-
-
-
-  if(ThisTask == 0)
-    fprintf(stderr,"done with writing initial conditions.\n");
 
   return 0;
 }

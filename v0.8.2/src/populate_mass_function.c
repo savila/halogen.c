@@ -29,7 +29,6 @@ static int compare_float(const void * , const void * );
 //The return value (if successful) is the number of haloes
 
 long populate_mass_function(char *filename, double Mmin, double Lbox, float **halo_masses,long seed, int nthreads){
-	fprintf(stderr,"\tpopulate_mass_function.c V4.0\n");		
 	long Npoints,Nshort,Nhalos,i,j;
 	double *mass_arr,*mass_inv_arr, *dens_arr, *dens_inv_arr, *y2, d_rand;
 	double dens_max;

@@ -103,7 +103,7 @@ double *pos_2_cic_serial(int ,float *,float *, float *,long**,long*);
 /*=============================================================================
  *                                   MAIN
  *=============================================================================*/
-int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, int NCells, int nthreads, float **out_x, float **out_y, float **out_z, float **out_vx, float **out_vy, float **out_vz,long *out_Np, float *out_mp, float *out_L, float *out_omega_0,long ***ListOfPart,long **NPartPerCell,float **dens){
+int read_snapshot(char *infile_name, int format, float lunit, float munit, int swp, int glong, int gdouble, int NCells, int nthreads, float **out_x, float **out_y, float **out_z, float **out_vx, float **out_vy, float **out_vz,unsigned long long *out_Np, float *out_mp, float *out_L, float *out_omega_0, unsigned long long ***ListOfPart,long **NPartPerCell,float **dens){
   char    gadget_file[MAXSTRING];
   int     no_gadget_files, i_gadget_file;
   long  ipart=0,ii,i,j,k,lin_ijk;

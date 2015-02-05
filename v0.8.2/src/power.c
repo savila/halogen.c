@@ -111,7 +111,7 @@ void read_power_table(void)
 
   if(ThisTask == 0)
     {
-      printf("found %d pairs of values in input spectrum table\n", NPowerTable);
+      printf("\tfound %d pairs of values in input spectrum table\n", NPowerTable);
       fflush(stdout);
     }
 
@@ -156,8 +156,7 @@ int compare_logk(const void *a, const void *b)
   return 0;
 }
 
-void initialize_powerspectrum(void)
-{
+void initialize_powerspectrum(void) {
   double res;
 
   InitTime = 1 / (1 + Redshift);
@@ -179,14 +178,17 @@ void initialize_powerspectrum(void)
 
   Norm = 1.0;
   res = TopHatSigma2(R8);
-
+  #ifdef VERB
   if(ThisTask == 0 && WhichSpectrum == 2)
-    printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
+    	fprintf(stderr,"\tNormalization of spectrum in file: Sigma8 = %g\n", sqrt(res));
+  #endif
 
   Norm = Sigma8 * Sigma8 / res;
 
+  #ifdef VERB
   if(ThisTask == 0 && WhichSpectrum == 2)
-    printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
+   	fprintf(stderr,"\tNormalization adjusted to Sigma8=%g (Normfac=%g)\n", Sigma8, Norm);
+  #endif
 
   Dplus = GrowthFactor(InitTime, 1.0);
 }

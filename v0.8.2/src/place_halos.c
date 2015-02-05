@@ -113,7 +113,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 	
 	t0=time(NULL);
 	NTotCells = NCells*NCells*NCells;
-	fprintf(stderr,"placE_halos: recalc_fact=%f\n",recalc_frac);
+
 	
 	//Allocate memory for the arrays 
 	MassLeft = (double *) calloc(NTotCells,sizeof(double));
@@ -166,13 +166,13 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 	if (seed>=0){
 		srand(seed);
 		#ifdef VERB
-			fprintf(stderr,"Used: %ld \n",seed);
+			fprintf(stderr,"\tUsed: %ld \n",seed);
 		#endif
 	}
 	else {
 		srand(t0);
 #ifdef VERB
-		fprintf(stderr,"Seed Used: %ld \n",t0);
+		fprintf(stderr,"\tSeed Used: %ld \n",t0);
 #endif
 	}
 
@@ -195,6 +195,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 	fprintf(stderr,"\tX[1] = %f Y[1] = %f Z[1] = %f\n",PartX[1],PartY[1],PartZ[1]);
 	fprintf(stderr,"\tM[0] = %e \n",HaloMass[0]);
 	fprintf(stderr,"\tM[1] = %e \n",HaloMass[1]);
+	fprintf(stderr,"\t    ... \n");
 	fprintf(stderr,"\tM[%ld] = %e \n",Nend-1,HaloMass[Nend-1]);
 	#endif	
 	
@@ -204,7 +205,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 	}
 
 #ifdef VERB
-	fprintf(stderr,"R_max=%f, lcell=%f, r=%d\n",R_from_mass(HaloMass[0],rho_ref),(L/NCells),r);
+	fprintf(stderr,"\tR_max=%f, lcell=%f, r=%d\n",R_from_mass(HaloMass[0],rho_ref),(L/NCells),r);
 	t1=time(NULL);
  	diff = difftime(t1,t0);
 	fprintf(stderr,"\ttime of initialisation %f\n",diff);
@@ -283,7 +284,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 #endif
 	TotProb = ComputeCumulative(exponent, mpart, MassLeft, CumulativeProb);	
 #ifdef VERB
-	fprintf(stderr,"\ncase 0, TotProb=%e\n",TotProb);
+	fprintf(stderr,"\n\tcase 0, TotProb=%e\n",TotProb);
 #endif
 
 
@@ -312,7 +313,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 		#ifdef VERB
 		if (ihalo%(Nend/10)==0 && ihalo>0){
 			//TEMPORARY
-			fprintf(stderr,"FRAC, TOTPROB: %e, %e",(pow(Mcell/mpart,exponent)/TotProb),TotProb);
+			fprintf(stderr,"\t\tFRAC, TOTPROB: %e, %e",(pow(Mcell/mpart,exponent)/TotProb),TotProb);
 			fprintf(stderr,"\t%ld%% done\n",(ihalo/(Nend/100)));
 		}
 		#endif
@@ -348,7 +349,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 
 		if (recalc==1){
 			tI=time(NULL);
-			fprintf(stderr,"case 1, TotProb_bef=%e",TotProb);
+			fprintf(stderr,"\tcase 1, TotProb_bef=%e",TotProb);
 			TotProb=ComputeCumulative(exponent, mpart, MassLeft, CumulativeProb);
 			fprintf(stderr,"    TotProb_aft=%e       ihalo=%ld\n\n",TotProb,ihalo);
 
@@ -370,7 +371,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 		  do{			
 			if (trials==MAXTRIALS){
 				fprintf(stderr,"MAXTRIALS=%d times picked an empty cell, recomputing Probs...\n",MAXTRIALS);
-				fprintf(stderr,"\ncase 2, TotProb_bef=%e",TotProb);
+				fprintf(stderr,"\n\tcase 2, TotProb_bef=%e",TotProb);
 				TotProb=ComputeCumulative(exponent, mpart, MassLeft, CumulativeProb);
 				fprintf(stderr,"    TotProb_aft=%e       ihalo=%ld\n",TotProb,ihalo);
 				prob_repicked = 0.0;
@@ -438,7 +439,7 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 				fprintf(stderr,"MAXTRIALS=%d reached, removing cell [%ld,%ld,%ld]\n",MAXTRIALS,i,j,k);
 				#endif
 				MassLeft[lin_ijk]=0.;
-				fprintf(stderr,"\ncase 3, TotProb_bef=%e",TotProb);
+				fprintf(stderr,"\n\tcase 3, TotProb_bef=%e",TotProb);
 				TotProb=ComputeCumulative(exponent, mpart, MassLeft, CumulativeProb);
 				fprintf(stderr,"    TotProb_aft=%e       ihalo=%ld\n",TotProb,ihalo);
 				prob_repicked=0.0;
@@ -466,9 +467,8 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 
 
 		#ifdef DEBUG
-		fprintf(stderr," After: Mcell=%e, CProbCell=%e, TotProb=%e.   , Mhalo=%e. CProb[last]=%e\n",MassLeft[lin_ijk],CumulativeProb[lin_ijk],TotProb,Mhalo,CumulativeProb[NTotCells-1]);
+		fprintf(stderr,"\tAfter: Mcell=%e, CProbCell=%e, TotProb=%e.   , Mhalo=%e. CProb[last]=%e\n",MassLeft[lin_ijk],CumulativeProb[lin_ijk],TotProb,Mhalo,CumulativeProb[NTotCells-1]);
 		#endif
-	
 		#ifdef DEBUG
 		fprintf(stderr,"\thalo %ld assigned to particle %ld at [%f,%f,%f]. R= %f, M= %e\n",ihalo,ipart,HaloX[ihalo],HaloY[ihalo],HaloZ[ihalo],R,Mhalo);
 		#endif
@@ -479,6 +479,8 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 	}//for(ihalo=Nstart:Nend)
 //----------------------------------- Haloes Placed
 
+	fprintf(stderr,"\t... placement Done!\n");
+	fprintf(stderr,"\t\tTOTAL NUMBER OF RE-CALCULATIONS: %ld\n",n_recalc);
 
 #ifdef VERB
 	t5=time(NULL);
@@ -496,13 +498,12 @@ fprintf(stderr,"\tThis is place_halos.c\n");
 #ifdef VERB
  	diff = difftime(t5,t0);
 	fprintf(stderr,"\ttotal time in place_halos.c %f\n",diff);
-	fprintf(stderr,"\n\tPlacement done!!!\n");
+	fprintf(stderr,"\tPlacement done!!!\n");
 #endif
 
 #ifdef MASS_OF_PARTS
 //	free(excluded); free(Nexcluded);
 #endif
-	fprintf(stderr,"TOTAL NUMBER OF RE-CALCULATIONS: %ld\n",n_recalc);
 	return 0;
 }
 //end of place_halos()

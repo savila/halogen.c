@@ -9,12 +9,6 @@ OBJS   = main.o power.o allvars.o save.o read_param.o  read_glass.o  \
 INCL   = allvars.h proto.h  nrsrc/nrutil.h  Makefile
 
 
-OPT   +=  -DNO64BITID    # switch this on if you want normal 32-bit IDs
-#OPT   +=  -DCORRECT_CIC  # only switch this on if particles start from a glass (as opposed to grid)
-#OPT += -DONLY_ZA # swith this on if you want ZA initial conditions (2LPT otherwise)
-
-
-
 OPTIONS =  $(OPT)
 
 
