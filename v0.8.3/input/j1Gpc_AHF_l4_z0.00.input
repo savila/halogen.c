@@ -14,7 +14,7 @@ OutputFile	output/j1Gp_z0.00_WN_n2e-4_l4_run0_lessparam_VII.halos
 NCellsLin	250
 
 #Full path to the tabulated alpha(Mass) relation. Format: alpha M[M_sun/h]
-alphaFile       ../v0.8.1/fit_output/j1Gp_N512_z0.00_WN_l4/M-alpha.txt
+alphaFile       fit_output/j1Gp_N512_z0.00_WN_l4/M-alpha.txt
 
 #Relative error allowed in CumulativeProb
 recalc_frac	1.0
